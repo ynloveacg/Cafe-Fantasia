@@ -1,0 +1,1016 @@
+{
+ "recipes": [
+  {
+   "id": "r01",
+   "name": "Salad",
+   "guestType": "star",
+   "cookCost": {
+    "vegetable": 1
+   },
+   "developCost": 2,
+   "dishPrice": 1,
+   "maxStars": 0
+  },
+  {
+   "id": "r02",
+   "name": "Bread",
+   "guestType": "star",
+   "cookCost": {
+    "wheat": 1
+   },
+   "developCost": 2,
+   "dishPrice": 1,
+   "maxStars": 0
+  },
+  {
+   "id": "r03",
+   "name": "BBQ",
+   "guestType": "giant",
+   "cookCost": {
+    "meat": 1
+   },
+   "developCost": 6,
+   "dishPrice": 3,
+   "maxStars": 1
+  },
+  {
+   "id": "r04",
+   "name": "Bacon",
+   "guestType": "giant",
+   "cookCost": {
+    "meat": 1
+   },
+   "developCost": 6,
+   "dishPrice": 3,
+   "maxStars": 1
+  },
+  {
+   "id": "r05",
+   "name": "Burger",
+   "guestType": "giant",
+   "cookCost": {
+    "wheat": 1,
+    "meat": 1
+   },
+   "developCost": 10,
+   "dishPrice": 4,
+   "maxStars": 2
+  },
+  {
+   "id": "r06",
+   "name": "Pizza",
+   "guestType": "giant",
+   "cookCost": {
+    "wheat": 1,
+    "meat": 1
+   },
+   "developCost": 10,
+   "dishPrice": 4,
+   "maxStars": 2
+  },
+  {
+   "id": "r07",
+   "name": "Stew",
+   "guestType": "giant",
+   "cookCost": {
+    "vegetable": 1,
+    "meat": 1
+   },
+   "developCost": 10,
+   "dishPrice": 5,
+   "maxStars": 2
+  },
+  {
+   "id": "r08",
+   "name": "Steak",
+   "guestType": "giant",
+   "cookCost": {
+    "vegetable": 1,
+    "meat": 1
+   },
+   "developCost": 10,
+   "dishPrice": 5,
+   "maxStars": 2
+  },
+  {
+   "id": "r09",
+   "name": "Ramen",
+   "guestType": "giant",
+   "cookCost": {
+    "vegetable": 1,
+    "wheat": 1,
+    "meat": 1
+   },
+   "developCost": 20,
+   "dishPrice": 6,
+   "maxStars": 3
+  },
+  {
+   "id": "r10",
+   "name": "Dumplings",
+   "guestType": "giant",
+   "cookCost": {
+    "vegetable": 1,
+    "wheat": 1,
+    "meat": 1
+   },
+   "developCost": 20,
+   "dishPrice": 6,
+   "maxStars": 3
+  },
+  {
+   "id": "r11",
+   "name": "Fish fry",
+   "guestType": "cat",
+   "cookCost": {
+    "fish": 1
+   },
+   "developCost": 5,
+   "dishPrice": 2,
+   "maxStars": 1
+  },
+  {
+   "id": "r12",
+   "name": "Sashimi",
+   "guestType": "cat",
+   "cookCost": {
+    "fish": 1
+   },
+   "developCost": 5,
+   "dishPrice": 2,
+   "maxStars": 1
+  },
+  {
+   "id": "r13",
+   "name": "Salmon toast",
+   "guestType": "cat",
+   "cookCost": {
+    "wheat": 1,
+    "fish": 1
+   },
+   "developCost": 9,
+   "dishPrice": 3,
+   "maxStars": 2
+  },
+  {
+   "id": "r14",
+   "name": "Fish sandwich",
+   "guestType": "cat",
+   "cookCost": {
+    "wheat": 1,
+    "fish": 1
+   },
+   "developCost": 9,
+   "dishPrice": 3,
+   "maxStars": 2
+  },
+  {
+   "id": "r15",
+   "name": "Fish soup",
+   "guestType": "cat",
+   "cookCost": {
+    "vegetable": 1,
+    "fish": 1
+   },
+   "developCost": 9,
+   "dishPrice": 3,
+   "maxStars": 2
+  },
+  {
+   "id": "r16",
+   "name": "Fish & chips",
+   "guestType": "cat",
+   "cookCost": {
+    "vegetable": 1,
+    "fish": 1
+   },
+   "developCost": 9,
+   "dishPrice": 3,
+   "maxStars": 2
+  },
+  {
+   "id": "r17",
+   "name": "Sanma set",
+   "guestType": "cat",
+   "cookCost": {
+    "vegetable": 1,
+    "wheat": 1,
+    "fish": 1
+   },
+   "developCost": 19,
+   "dishPrice": 5,
+   "maxStars": 3
+  },
+  {
+   "id": "r18",
+   "name": "Seafood pasta",
+   "guestType": "cat",
+   "cookCost": {
+    "vegetable": 1,
+    "wheat": 1,
+    "fish": 1
+   },
+   "developCost": 19,
+   "dishPrice": 5,
+   "maxStars": 3
+  },
+  {
+   "id": "r19",
+   "name": "Juice",
+   "guestType": "elf",
+   "cookCost": {
+    "fruit": 1
+   },
+   "developCost": 4,
+   "dishPrice": 1,
+   "maxStars": 1
+  },
+  {
+   "id": "r20",
+   "name": "Fruitcandy",
+   "guestType": "elf",
+   "cookCost": {
+    "fruit": 1
+   },
+   "developCost": 4,
+   "dishPrice": 1,
+   "maxStars": 1
+  },
+  {
+   "id": "r21",
+   "name": "Fruit cake",
+   "guestType": "elf",
+   "cookCost": {
+    "wheat": 1,
+    "fruit": 1
+   },
+   "developCost": 8,
+   "dishPrice": 2,
+   "maxStars": 2
+  },
+  {
+   "id": "r22",
+   "name": "Fruit pie",
+   "guestType": "elf",
+   "cookCost": {
+    "wheat": 1,
+    "fruit": 1
+   },
+   "developCost": 8,
+   "dishPrice": 2,
+   "maxStars": 2
+  },
+  {
+   "id": "r23",
+   "name": "Platter",
+   "guestType": "elf",
+   "cookCost": {
+    "vegetable": 1,
+    "fruit": 1
+   },
+   "developCost": 8,
+   "dishPrice": 3,
+   "maxStars": 2
+  },
+  {
+   "id": "r24",
+   "name": "Smoothie",
+   "guestType": "elf",
+   "cookCost": {
+    "vegetable": 1,
+    "fruit": 1
+   },
+   "developCost": 8,
+   "dishPrice": 3,
+   "maxStars": 2
+  },
+  {
+   "id": "r25",
+   "name": "Crepe",
+   "guestType": "elf",
+   "cookCost": {
+    "vegetable": 1,
+    "wheat": 1,
+    "fruit": 1
+   },
+   "developCost": 18,
+   "dishPrice": 4,
+   "maxStars": 3
+  },
+  {
+   "id": "r26",
+   "name": "Veggie buns",
+   "guestType": "elf",
+   "cookCost": {
+    "vegetable": 1,
+    "wheat": 1,
+    "fruit": 1
+   },
+   "developCost": 18,
+   "dishPrice": 4,
+   "maxStars": 3
+  },
+  {
+   "id": "r27",
+   "name": "Wine",
+   "guestType": "star",
+   "cookCost": {
+    "fruit": 1
+   },
+   "developCost": 0,
+   "dishPrice": 3,
+   "maxStars": 2,
+   "sideDish": true
+  },
+  {
+   "id": "r28",
+   "name": "Whisky",
+   "guestType": "star",
+   "cookCost": {
+    "wheat": 1
+   },
+   "developCost": 0,
+   "dishPrice": 2,
+   "maxStars": 1,
+   "sideDish": true
+  },
+  {
+   "id": "r29",
+   "name": "Fantasy Banquet",
+   "guestType": "star",
+   "cookCost": {
+    "vegetable": 1,
+    "wheat": 1,
+    "meat": 1,
+    "fish": 1,
+    "fruit": 1
+   },
+   "developCost": 30,
+   "dishPrice": 10,
+   "maxStars": 4
+  }
+ ],
+ "guests": [
+  {
+   "id": "g01",
+   "kind": "guest",
+   "name": "Satisfied guest",
+   "effect": "Gain twice tips this turn",
+   "count": 3
+  },
+  {
+   "id": "g02",
+   "kind": "guest",
+   "name": "Farmer",
+   "effect": "Wheat +1",
+   "count": 2
+  },
+  {
+   "id": "g03",
+   "kind": "guest",
+   "name": "Gardener",
+   "effect": "Vegetable +1",
+   "count": 2
+  },
+  {
+   "id": "g04",
+   "kind": "guest",
+   "name": "Hunter",
+   "effect": "Meat +1",
+   "count": 2
+  },
+  {
+   "id": "g05",
+   "kind": "guest",
+   "name": "Orcharder",
+   "effect": "Fruit +1",
+   "count": 2
+  },
+  {
+   "id": "g06",
+   "kind": "guest",
+   "name": "Fisher",
+   "effect": "Fish +1",
+   "count": 2
+  },
+  {
+   "id": "g07",
+   "kind": "guest",
+   "name": "Merchant",
+   "effect": "You may exchange 3 ingredients of your choice.",
+   "count": 1
+  },
+  {
+   "id": "g08",
+   "kind": "guest",
+   "name": "Silversmith",
+   "effect": "If you have no silver spoon yet, silversmith will sell you one with half price.",
+   "count": 1
+  },
+  {
+   "id": "g09",
+   "kind": "guest",
+   "name": "Glutton",
+   "effect": "You may serve the glutton 1 more dish with twice of its price.",
+   "count": 1
+  },
+  {
+   "id": "g10",
+   "kind": "guest",
+   "name": "Mafia",
+   "effect": "You may serve mafia Fantasy Banquet during your next turn, with 3 times of its price.",
+   "count": 1
+  },
+  {
+   "id": "g11",
+   "kind": "guest",
+   "name": "Investor",
+   "effect": "If you have a specialty dish and no branch yet, open a branch with half price.",
+   "count": 1
+  },
+  {
+   "id": "g12",
+   "kind": "guest",
+   "name": "Nutritionist",
+   "effect": "Draw a recipe for free.",
+   "count": 1
+  },
+  {
+   "id": "g13",
+   "kind": "guest",
+   "name": "Painter",
+   "effect": "Renovate your restaurant once.",
+   "count": 1
+  },
+  {
+   "id": "g14",
+   "kind": "guest",
+   "name": "Unsatisfied guest",
+   "effect": "Lose all the tips this turn.",
+   "count": 1
+  },
+  {
+   "id": "g15",
+   "kind": "guest",
+   "name": "Reporter",
+   "effect": "You may serve 1 additional guest next turn, and that guest is a Michelin Inspector.",
+   "count": "numPlayers"
+  },
+  {
+   "id": "g17",
+   "kind": "guest",
+   "name": "Drunk",
+   "effect": "Decrease your restaurant's renovation level by 1.",
+   "count": 1
+  },
+  {
+   "id": "g18",
+   "kind": "guest",
+   "name": "Fortune teller",
+   "effect": "Roll a dice, and you may save the result to use in the future for once.",
+   "count": 1
+  },
+  {
+   "id": "g19",
+   "kind": "guest",
+   "name": "Bard",
+   "effect": "You may sell any number of recipes for its full price.",
+   "count": 1
+  },
+  {
+   "id": "g20",
+   "kind": "guest",
+   "name": "Master",
+   "effect": "You may increase the level for a dish by 3",
+   "count": 1
+  },
+  {
+   "id": "g21",
+   "kind": "guest",
+   "name": "Noble",
+   "effect": "If you have one or more 2-star or 3-star dish and a side dish, you may cook one set without using ingredients.",
+   "count": 1
+  },
+  {
+   "id": "g23",
+   "kind": "guest",
+   "name": "Scholar",
+   "effect": "You may exchange $5 for 2 points.",
+   "count": 1
+  },
+  {
+   "id": "g24",
+   "kind": "guest",
+   "name": "Part-time worker",
+   "effect": "Gain an extra action for $6, or lose an action to gain $6.",
+   "count": 1
+  },
+  {
+   "id": "g25",
+   "kind": "guest",
+   "name": "Wine seller",
+   "effect": "Gain a wine recipe.",
+   "count": 1
+  },
+  {
+   "id": "g26",
+   "kind": "guest",
+   "name": "Whisky seller",
+   "effect": "Gain a Whisky recipe.",
+   "count": 1
+  },
+  {
+   "id": "g27",
+   "kind": "guest",
+   "name": "Monk",
+   "effect": "If you only have vegetarian recipes, gain any elf recipe of your choice for half its price. (Round up)",
+   "count": 1
+  },
+  {
+   "id": "g28",
+   "kind": "guest",
+   "name": "Adventurer",
+   "effect": "Explore a new village, and immediately open a branch without extra action.",
+   "count": 1
+  }
+ ],
+ "events": [
+  {
+   "id": "e01",
+   "kind": "event",
+   "name": "Monster attack",
+   "effect": "Each player rolls a die. If the result > 0, gain 3 points. Otherwise the player's renovation level decreases by 1.",
+   "count": null
+  },
+  {
+   "id": "e02",
+   "kind": "event",
+   "name": "Fundraising",
+   "effect": "You give the player who owns the least money $1 for every $10 you own, max $30.",
+   "count": null
+  },
+  {
+   "id": "e03",
+   "kind": "event",
+   "name": "Festival",
+   "effect": "All players gain 1 additional action for their next turn.",
+   "count": null
+  },
+  {
+   "id": "e04",
+   "kind": "event",
+   "name": "Vacation",
+   "effect": "All players lose 1 action for their next turn.",
+   "count": null
+  },
+  {
+   "id": "e05",
+   "kind": "event",
+   "name": "Heat wave",
+   "effect": "All players lose one ingredient of their choice.",
+   "count": null
+  },
+  {
+   "id": "e06",
+   "kind": "event",
+   "name": "Flood",
+   "effect": "All players lose 1 ingredient of every kind. For each ingredient you lose, gain 1 fish.",
+   "count": null
+  },
+  {
+   "id": "e07",
+   "kind": "event",
+   "name": "Hygiene rating",
+   "effect": "If your renovation level < number of recipes, lose $3 times the difference, and lose 1 action for your next turn.",
+   "count": null
+  },
+  {
+   "id": "e08",
+   "kind": "event",
+   "name": "Harvest",
+   "effect": "All players gain 2 wheat, 2 vegetables and 2 fruit.",
+   "count": null
+  },
+  {
+   "id": "e09",
+   "kind": "event",
+   "name": "Rent collection",
+   "effect": "Each branch gives $10, or 2 points.",
+   "count": null
+  },
+  {
+   "id": "e10",
+   "kind": "event",
+   "name": "Cooking contest",
+   "effect": "The player with the specialty of the most proficiency gains $50 and a vlogger in the next turn. If tie, divide the reward.",
+   "count": null
+  },
+  {
+   "id": "e11",
+   "kind": "event",
+   "name": "Cold wave",
+   "effect": "All players can't hunt, fish, or gain fruits in the next round. The existing ingredients won't rot.",
+   "count": null
+  },
+  {
+   "id": "e12",
+   "kind": "event",
+   "name": "Flee market",
+   "effect": "Gain an ingredient from the next player. If there is none, get any ingredient from the bank.",
+   "count": null
+  },
+  {
+   "id": "e13",
+   "kind": "event",
+   "name": "Michelin inspector",
+   "effect": "A player's restaurant may become x-star Michelin for the number of specialty dishes they have. Each specialty dish will attract 1 more customer of the dish type.",
+   "count": null
+  },
+  {
+   "id": "e14",
+   "kind": "event",
+   "name": "Stray cat",
+   "effect": "Lose a fish. If you do, get 1 point.",
+   "count": null
+  }
+ ],
+ "villagePopulations": [
+  {
+   "cat": 4
+  },
+  {
+   "giant": 4
+  },
+  {
+   "elf": 4
+  },
+  {
+   "cat": 2,
+   "giant": 2
+  },
+  {
+   "cat": 2,
+   "elf": 2
+  },
+  {
+   "giant": 2,
+   "elf": 2
+  },
+  {
+   "cat": 1,
+   "giant": 1,
+   "elf": 1
+  },
+  {
+   "cat": 3,
+   "giant": 1,
+   "elf": 1
+  },
+  {
+   "cat": 1,
+   "giant": 3,
+   "elf": 1
+  },
+  {
+   "cat": 1,
+   "giant": 1,
+   "elf": 3
+  }
+ ],
+ "recipeImagesByStar": {
+  "r01": [
+   "assets/recipes/r01-star0.jpg"
+  ],
+  "r02": [
+   "assets/recipes/r02-star0.jpg"
+  ],
+  "r03": [
+   "assets/recipes/r03-star0.jpg",
+   "assets/recipes/r03-star1.jpg"
+  ],
+  "r04": [
+   "assets/recipes/r04-star0.jpg",
+   "assets/recipes/r04-star1.jpg"
+  ],
+  "r05": [
+   "assets/recipes/r05-star0.jpg",
+   "assets/recipes/r05-star1.jpg",
+   "assets/recipes/r05-star2.jpg"
+  ],
+  "r06": [
+   "assets/recipes/r06-star0.jpg",
+   "assets/recipes/r06-star1.jpg",
+   "assets/recipes/r06-star2.jpg"
+  ],
+  "r07": [
+   "assets/recipes/r07-star0.jpg",
+   "assets/recipes/r07-star1.jpg",
+   "assets/recipes/r07-star2.jpg"
+  ],
+  "r08": [
+   "assets/recipes/r08-star0.jpg",
+   "assets/recipes/r08-star1.jpg",
+   "assets/recipes/r08-star2.jpg"
+  ],
+  "r09": [
+   "assets/recipes/r09-star0.jpg",
+   "assets/recipes/r09-star1.jpg",
+   "assets/recipes/r09-star2.jpg",
+   "assets/recipes/r09-star3.jpg"
+  ],
+  "r10": [
+   "assets/recipes/r10-star0.jpg",
+   "assets/recipes/r10-star1.jpg",
+   "assets/recipes/r10-star2.jpg",
+   "assets/recipes/r10-star3.jpg"
+  ],
+  "r11": [
+   "assets/recipes/r11-star0.jpg",
+   "assets/recipes/r11-star1.jpg"
+  ],
+  "r12": [
+   "assets/recipes/r12-star0.jpg",
+   "assets/recipes/r12-star1.jpg"
+  ],
+  "r13": [
+   "assets/recipes/r13-star0.jpg",
+   "assets/recipes/r13-star1.jpg",
+   "assets/recipes/r13-star2.jpg"
+  ],
+  "r14": [
+   "assets/recipes/r14-star0.jpg",
+   "assets/recipes/r14-star1.jpg",
+   "assets/recipes/r14-star2.jpg"
+  ],
+  "r15": [
+   "assets/recipes/r15-star0.jpg",
+   "assets/recipes/r15-star1.jpg",
+   "assets/recipes/r15-star2.jpg"
+  ],
+  "r16": [
+   "assets/recipes/r16-star0.jpg",
+   "assets/recipes/r16-star1.jpg",
+   "assets/recipes/r16-star2.jpg"
+  ],
+  "r17": [
+   "assets/recipes/r17-star0.jpg",
+   "assets/recipes/r17-star1.jpg",
+   "assets/recipes/r17-star2.jpg",
+   "assets/recipes/r17-star3.jpg"
+  ],
+  "r18": [
+   "assets/recipes/r18-star0.jpg",
+   "assets/recipes/r18-star1.jpg",
+   "assets/recipes/r18-star2.jpg",
+   "assets/recipes/r18-star3.jpg"
+  ],
+  "r19": [
+   "assets/recipes/r19-star0.jpg",
+   "assets/recipes/r19-star1.jpg"
+  ],
+  "r20": [
+   "assets/recipes/r20-star0.jpg",
+   "assets/recipes/r20-star1.jpg"
+  ],
+  "r21": [
+   "assets/recipes/r21-star0.jpg",
+   "assets/recipes/r21-star1.jpg",
+   "assets/recipes/r21-star2.jpg"
+  ],
+  "r22": [
+   "assets/recipes/r22-star0.jpg",
+   "assets/recipes/r22-star1.jpg",
+   "assets/recipes/r22-star2.jpg"
+  ],
+  "r23": [
+   "assets/recipes/r23-star0.jpg",
+   "assets/recipes/r23-star1.jpg",
+   "assets/recipes/r23-star2.jpg"
+  ],
+  "r24": [
+   "assets/recipes/r24-star0.jpg",
+   "assets/recipes/r24-star1.jpg",
+   "assets/recipes/r24-star2.jpg"
+  ],
+  "r25": [
+   "assets/recipes/r25-star0.jpg",
+   "assets/recipes/r25-star1.jpg",
+   "assets/recipes/r25-star2.jpg",
+   "assets/recipes/r25-star3.jpg"
+  ],
+  "r26": [
+   "assets/recipes/r26-star0.jpg",
+   "assets/recipes/r26-star1.jpg",
+   "assets/recipes/r26-star2.jpg",
+   "assets/recipes/r26-star3.jpg"
+  ],
+  "r27": [
+   "assets/recipes/r27-star0.jpg",
+   "assets/recipes/r27-star1.jpg",
+   "assets/recipes/r27-star2.jpg"
+  ],
+  "r28": [
+   "assets/recipes/r28-star0.jpg",
+   "assets/recipes/r28-star1.jpg"
+  ],
+  "r29": [
+   "assets/recipes/r29-star0.jpg",
+   "assets/recipes/r29-star1.jpg",
+   "assets/recipes/r29-star2.jpg",
+   "assets/recipes/r29-star3.jpg",
+   "assets/recipes/r29-star4.jpg"
+  ]
+ },
+ "guestImagesByType": {
+  "g01": {
+   "cat": "assets/guests/g01-cat.jpg",
+   "elf": "assets/guests/g01-elf.jpg",
+   "giant": "assets/guests/g01-giant.jpg"
+  },
+  "g02": {
+   "cat": "assets/guests/g02-cat.jpg",
+   "elf": "assets/guests/g02-elf.jpg",
+   "giant": "assets/guests/g02-giant.jpg"
+  },
+  "g03": {
+   "cat": "assets/guests/g03-cat.jpg",
+   "elf": "assets/guests/g03-elf.jpg",
+   "giant": "assets/guests/g03-giant.jpg"
+  },
+  "g04": {
+   "cat": "assets/guests/g04-cat.jpg",
+   "elf": "assets/guests/g04-elf.jpg",
+   "giant": "assets/guests/g04-giant.jpg"
+  },
+  "g05": {
+   "cat": "assets/guests/g05-cat.jpg",
+   "elf": "assets/guests/g05-elf.jpg",
+   "giant": "assets/guests/g05-giant.jpg"
+  },
+  "g06": {
+   "cat": "assets/guests/g06-cat.jpg",
+   "elf": "assets/guests/g06-elf.jpg",
+   "giant": "assets/guests/g06-giant.jpg"
+  },
+  "g07": {
+   "cat": "assets/guests/g07-cat.jpg",
+   "elf": "assets/guests/g07-elf.jpg",
+   "giant": "assets/guests/g07-giant.jpg"
+  },
+  "g08": {
+   "cat": "assets/guests/g08-cat.jpg",
+   "elf": "assets/guests/g08-elf.jpg",
+   "giant": "assets/guests/g08-giant.jpg"
+  },
+  "g09": {
+   "cat": "assets/guests/g09-cat.jpg",
+   "elf": "assets/guests/g09-elf.jpg",
+   "giant": "assets/guests/g09-giant.jpg"
+  },
+  "g10": {
+   "cat": "assets/guests/g10-cat.jpg",
+   "elf": "assets/guests/g10-elf.jpg",
+   "giant": "assets/guests/g10-giant.jpg"
+  },
+  "g11": {
+   "cat": "assets/guests/g11-cat.jpg",
+   "elf": "assets/guests/g11-elf.jpg",
+   "giant": "assets/guests/g11-giant.jpg"
+  },
+  "g12": {
+   "cat": "assets/guests/g12-cat.jpg",
+   "elf": "assets/guests/g12-elf.jpg",
+   "giant": "assets/guests/g12-giant.jpg"
+  },
+  "g13": {
+   "cat": "assets/guests/g13-cat.jpg",
+   "elf": "assets/guests/g13-elf.jpg",
+   "giant": "assets/guests/g13-giant.jpg"
+  },
+  "g14": {
+   "cat": "assets/guests/g14-cat.jpg",
+   "elf": "assets/guests/g14-elf.jpg",
+   "giant": "assets/guests/g14-giant.jpg"
+  },
+  "g15": {
+   "cat": "assets/guests/g15-cat.jpg",
+   "elf": "assets/guests/g15-elf.jpg",
+   "giant": "assets/guests/g15-giant.jpg"
+  },
+  "g17": {
+   "cat": "assets/guests/g17-cat.jpg",
+   "elf": "assets/guests/g17-elf.jpg",
+   "giant": "assets/guests/g17-giant.jpg"
+  },
+  "g18": {
+   "cat": "assets/guests/g18-cat.jpg",
+   "elf": "assets/guests/g18-elf.jpg",
+   "giant": "assets/guests/g18-giant.jpg"
+  },
+  "g19": {
+   "cat": "assets/guests/g19-cat.jpg",
+   "elf": "assets/guests/g19-elf.jpg",
+   "giant": "assets/guests/g19-giant.jpg"
+  },
+  "g20": {
+   "cat": "assets/guests/g20-cat.jpg",
+   "elf": "assets/guests/g20-elf.jpg",
+   "giant": "assets/guests/g20-giant.jpg"
+  },
+  "g21": {
+   "cat": "assets/guests/g21-cat.jpg",
+   "elf": "assets/guests/g21-elf.jpg",
+   "giant": "assets/guests/g21-giant.jpg"
+  },
+  "g23": {
+   "cat": "assets/guests/g23-cat.jpg",
+   "elf": "assets/guests/g23-elf.jpg",
+   "giant": "assets/guests/g23-giant.jpg"
+  },
+  "g24": {
+   "cat": "assets/guests/g24-cat.jpg",
+   "elf": "assets/guests/g24-elf.jpg",
+   "giant": "assets/guests/g24-giant.jpg"
+  },
+  "g25": {
+   "cat": "assets/guests/g25-cat.jpg",
+   "elf": "assets/guests/g25-elf.jpg",
+   "giant": "assets/guests/g25-giant.jpg"
+  },
+  "g26": {
+   "cat": "assets/guests/g26-cat.jpg",
+   "elf": "assets/guests/g26-elf.jpg",
+   "giant": "assets/guests/g26-giant.jpg"
+  },
+  "g27": {
+   "cat": "assets/guests/g27-cat.jpg",
+   "elf": "assets/guests/g27-elf.jpg",
+   "giant": "assets/guests/g27-giant.jpg"
+  },
+  "g28": {
+   "cat": "assets/guests/g28-cat.jpg",
+   "elf": "assets/guests/g28-elf.jpg",
+   "giant": "assets/guests/g28-giant.jpg"
+  }
+ },
+ "eventImages": {
+  "e01": "assets/events/e01.jpg",
+  "e02": "assets/events/e02.jpg",
+  "e03": "assets/events/e03.jpg",
+  "e04": "assets/events/e04.jpg",
+  "e05": "assets/events/e05.jpg",
+  "e06": "assets/events/e06.jpg",
+  "e07": "assets/events/e07.jpg",
+  "e08": "assets/events/e08.jpg",
+  "e09": "assets/events/e09.jpg",
+  "e10": "assets/events/e10.jpg",
+  "e11": "assets/events/e11.jpg",
+  "e12": "assets/events/e12.jpg",
+  "e13": "assets/events/e13.jpg",
+  "e14": "assets/events/e14.jpg"
+ },
+ "restaurantImages": [
+  "assets/restaurant/level-0.jpg",
+  "assets/restaurant/level-1.jpg",
+  "assets/restaurant/level-2.jpg",
+  "assets/restaurant/level-3.jpg",
+  "assets/restaurant/level-4.jpg",
+  "assets/restaurant/level-5.jpg",
+  "assets/restaurant/level-6.jpg",
+  "assets/restaurant/level-7.jpg",
+  "assets/restaurant/level-8.jpg",
+  "assets/restaurant/level-9.jpg",
+  "assets/restaurant/level-10.jpg"
+ ],
+ "ingredientImages": {
+  "fish": "assets/ingredients/fish.jpg",
+  "fruit": "assets/ingredients/fruit.jpg",
+  "meat": "assets/ingredients/meat.jpg",
+  "vegetable": "assets/ingredients/vegetable.jpg",
+  "wheat": "assets/ingredients/wheat.jpg"
+ },
+ "guestTypeImages": {
+  "cat": "assets/guest-types/cat.jpg",
+  "elf": "assets/guest-types/elf.jpg",
+  "giant": "assets/guest-types/giant.jpg"
+ },
+ "diceImages": {
+  "0": "assets/dice/dice0.png",
+  "1": "assets/dice/dice1.png",
+  "2": "assets/dice/dice2.png"
+ },
+ "fruitPickingImages": {
+  "wooden": "assets/misc/fruitpicking-wooden.jpg",
+  "silver": "assets/misc/fruitpicking-silver.jpg",
+  "golden": "assets/misc/fruitpicking-golden.jpg"
+ },
+ "gameboardImg": "assets/misc/gameboard.jpg",
+ "logBg": "assets/misc/log-bg.jpg",
+ "mapBg": "assets/map/map-bg.jpg",
+ "menuBg": "assets/misc/menu-bg.jpg",
+ "menuBg2": "assets/misc/menu-bg2.jpg",
+ "fishingSuccessImg": "assets/misc/fishing-success.jpg",
+ "fishingFailedImg": "assets/misc/fishing-failed.jpg",
+ "huntingSuccessImg": "assets/misc/hunting-success.jpg",
+ "huntingFailedImg": "assets/misc/hunting-failed.jpg"
+}

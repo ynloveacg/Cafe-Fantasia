@@ -17,6 +17,7 @@ const HUNTING_RESULTS = {
 const FRUIT_PICKING_RESULTS = { wooden: 2, silver: 4, golden: 6 };
 const CUSTOM_DIE_FACES = [0, 0, 0, 1, 1, 2];
 const AI_PLAYER_ID = "p2";
+let skipEndTurnConfirm = false; // "Do not show this again" for the End turn confirmation dialog, resets on page reload
 
 // Village exploration map — matches the uploaded layout. "start" is where
 // both players begin with a free branch. Every other node is unexplored
@@ -250,6 +251,53 @@ function spendAction() {
 // The only way a turn actually ends now (aside from the bot doing it
 // itself) — the player explicitly signals they're done cooking.
 function actionDone() {
+  const p = currentPlayer();
+  if (!isBot(p) && !skipEndTurnConfirm) {
+    if (state.actionsLeft > 0) {
+      showEndTurnConfirmDialog("You still have actions left to do");
+      return;
+    }
+    if (hasCookableDish(p)) {
+      showEndTurnConfirmDialog("You still have dishes you can cook");
+      return;
+    }
+  }
+  endTurn();
+  render();
+}
+
+function hasCookableDish(p) {
+  return p.recipes.some((r) => {
+    const def = recipeDef(r.recipeId);
+    const guestTypeAvailable = def.guestType === "star"
+      ? p.guestCapacityRemaining.cat > 0 || p.guestCapacityRemaining.giant > 0 || p.guestCapacityRemaining.elf > 0
+      : p.guestCapacityRemaining[def.guestType] > 0;
+    return canAfford(p.ingredients, def.cookCost) && guestTypeAvailable;
+  });
+}
+
+function showEndTurnConfirmDialog(title) {
+  document.getElementById("modalImgWrap").innerHTML = "";
+  document.getElementById("modalTitle").textContent = title;
+  document.getElementById("modalEffect").textContent = "";
+  document.getElementById("modalBody").innerHTML = `
+    <label style="display:flex;align-items:center;gap:6px;justify-content:center;font-size:12px;color:var(--muted);margin-bottom:12px;">
+      <input type="checkbox" id="skipEndTurnConfirmCheckbox"> Do not show this again
+    </label>
+    <div class="row-btns">
+      <button class="primary" onclick="confirmEndTurn()">End turn</button>
+      <button onclick="document.getElementById('modalBackdrop').style.display='none'">Go back</button>
+    </div>`;
+  document.getElementById("modalBox").classList.remove("modal-wide");
+  document.getElementById("modalBox").classList.remove("modal-transparent");
+  document.getElementById("modalBackdrop").style.display = "flex";
+}
+
+function confirmEndTurn() {
+  if (document.getElementById("skipEndTurnConfirmCheckbox").checked) {
+    skipEndTurnConfirm = true;
+  }
+  document.getElementById("modalBackdrop").style.display = "none";
   endTurn();
   render();
 }

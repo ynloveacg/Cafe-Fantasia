@@ -12,6 +12,21 @@
   * { box-sizing: border-box; }
   body { font-family: -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 0 0 3rem; }
   .wrap { max-width: 1400px; margin: 0 auto; }
+
+  .splash { min-height: 100vh; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; background: linear-gradient(135deg, var(--navy), var(--navy-light)); }
+  .splash::before { content: ""; position: absolute; inset: 0; background-image: radial-gradient(circle, var(--accent) 9px, transparent 10px); background-size: 64px 64px; opacity: 0.12; }
+  .splash-content { position: relative; text-align: center; padding: 24px; }
+  .splash-title { font-size: clamp(36px, 8vw, 56px); font-weight: 700; color: #fff; margin: 0; letter-spacing: 0.5px; }
+  .splash-subtitle { font-size: 15px; color: rgba(255,255,255,0.75); margin: 10px 0 36px; letter-spacing: 0.5px; }
+  .splash-buttons { display: flex; flex-direction: column; gap: 14px; align-items: center; }
+  .splash-btn { width: 220px; max-width: 70vw; padding: 13px 20px; border-radius: 24px; border: none; background: var(--accent); color: #fff; font-size: 15px; font-weight: 600; cursor: pointer; }
+  .splash-btn:hover { filter: brightness(1.1); }
+  .splash-btn.secondary { background: rgba(255,255,255,0.12); color: #fff; border: 1px solid rgba(255,255,255,0.35); }
+  .splash-btn.secondary:hover { background: rgba(255,255,255,0.2); }
+  .ai-count-row { display: flex; gap: 10px; justify-content: center; margin: 6px 0 4px; }
+  .ai-count-row .ai-count-btn { display: inline-block; width: 48px; height: 48px; margin: 0; padding: 0; border-radius: 50%; border: 1px solid var(--border); background: var(--bg); font-size: 16px; font-weight: 600; cursor: pointer; }
+  .ai-count-row .ai-count-btn:hover { border-color: var(--accent); }
+  .ai-count-row .ai-count-btn.selected { background: var(--accent); color: #fff; border-color: var(--accent); }
   .status { display: flex; justify-content: space-between; align-items: center; background: var(--bg); border-bottom: 2px solid var(--border); padding: 10px 4px 14px; margin-bottom: 1.25rem; font-size: 14px; }
   .status b { color: var(--accent); }
   .status-left { display: flex; align-items: center; gap: 10px; }
@@ -107,7 +122,18 @@
 </style>
 </head>
 <body>
-<div class="wrap">
+<div id="splashScreen" class="splash">
+  <div class="splash-content">
+    <h1 class="splash-title">Fantasia Cafe</h1>
+    <p class="splash-subtitle">Isekai cafe simulation game</p>
+    <div class="splash-buttons">
+      <button class="splash-btn" onclick="showSinglePlayerDialog()">Single Player</button>
+      <button class="splash-btn secondary" onclick="showBestScoreDialog()">Best score</button>
+    </div>
+  </div>
+</div>
+
+<div class="wrap" id="gameWrap" style="display:none">
   <div id="winBanner" style="display:none" class="win-banner"></div>
   <div class="status">
     <div class="status-left">
@@ -133,7 +159,7 @@
     </div>
   </div>
 
-  <p class="note">Player 2 is AI-controlled (simple heuristics, not an LLM — see chat for why). Cooking is unlimited in count but gated by the guest capacity from your branches, and only unlocks after your 3 prep actions are used — click End turn when you're finished. Everything else — card art, effects, points, renovation tips — runs the real logic.</p>
+  <p class="note">Every other player is AI-controlled (simple heuristics, not an LLM — see chat for why). Cooking is unlimited in count but gated by the guest capacity from your branches, and only unlocks after your 3 prep actions are used — click End turn when you're finished. Everything else — card art, effects, points, renovation tips — runs the real logic.</p>
 </div>
 
 <div id="modalBackdrop" class="modal-backdrop" style="display:none">

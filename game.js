@@ -1351,13 +1351,15 @@ async function runBotTurn() {
     await sleep(500);
   }
 
-  if (!state.gameOver && isBot(currentPlayer())) {
-    await sleep(400);
-    actionDone();
-  }
+  const shouldEndTurn = !state.gameOver && isBot(currentPlayer());
+  if (shouldEndTurn) await sleep(400);
 
+  // Clear these BEFORE actionDone() (which renders synchronously) — render()
+  // only auto-starts the next bot's turn when botRunning is already false,
+  // and with more than one AI opponent the next player can be another bot.
   setThinking(false);
   botRunning = false;
+  if (shouldEndTurn) actionDone();
 }
 
 function setThinking(on) {

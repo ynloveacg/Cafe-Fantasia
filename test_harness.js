@@ -30,6 +30,7 @@ sandbox.GAME_DATA = gameData;
 const code = fs.readFileSync('game.js', 'utf-8');
 vm.runInContext(code, sandbox, { filename: 'game.js' });
 vm.runInContext('this.getState = () => state; this.getBotRunning = () => botRunning;', sandbox);
+vm.runInContext('initGame(1);', sandbox);
 
 console.log('=== Initial state ===');
 const st0 = sandbox.getState();

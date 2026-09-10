@@ -16,7 +16,9 @@ const HUNTING_RESULTS = {
 };
 const FRUIT_PICKING_RESULTS = { wooden: 2, silver: 4, golden: 6 };
 const CUSTOM_DIE_FACES = [0, 0, 0, 1, 1, 2];
-const AI_PLAYER_ID = "p2";
+const HUMAN_PLAYER_ID = "p1";
+const PLAYER_COLORS = { p1: "#c1502e", p2: "#4a7c59", p3: "#6fa0bc", p4: "#c9ab3a" };
+const MAX_AI_OPPONENTS = 3;
 let skipEndTurnConfirm = false; // "Do not show this again" for the End turn confirmation dialog, resets on page reload
 
 // Village exploration map — matches the uploaded layout. "start" is where
@@ -132,8 +134,13 @@ function renovationTipBonus(level) {
   if (level >= 1) return 1;
   return 0;
 }
-function isBot(p) { return p.id === AI_PLAYER_ID; }
-function otherPlayerOf(p) { return state.players.find((pl) => pl.id !== p.id); }
+function isBot(p) { return p.id !== HUMAN_PLAYER_ID; }
+// Picks a target among the other players — a random opponent when there's
+// more than one, or the sole opponent in a 2-player game (unchanged behavior).
+function otherPlayerOf(p) {
+  const others = state.players.filter((pl) => pl.id !== p.id);
+  return others[Math.floor(Math.random() * others.length)];
+}
 
 // Final score, computed only when the game ends. This is separate from the
 // "points" stat tracked during play (from serving guests, Scholar, Stray
@@ -167,13 +174,47 @@ function endGame(reason) {
       ? `Game over (${reason})! It's a tie at ${scored[0].score.total} points.`
       : `Game over (${reason})! ${scored[0].player.name} wins with ${scored[0].score.total} points.`
   );
+  updateBestScore();
 }
 
-function initGame() {
+// Persists the human player's best-ever final score to localStorage so the
+// splash screen's "Best score" button can show it across sessions, since
+// this game has no other save/load or backend.
+function updateBestScore() {
+  try {
+    const entry = state.finalScores.find((s) => s.player.id === HUMAN_PLAYER_ID);
+    if (!entry) return;
+    const existing = JSON.parse(localStorage.getItem("cafeFantasiaBestScore") || "null");
+    if (existing && existing.total >= entry.score.total) return;
+    const outcome = state.winnerId === HUMAN_PLAYER_ID ? "win" : state.winnerId === null ? "tie" : "loss";
+    localStorage.setItem("cafeFantasiaBestScore", JSON.stringify({
+      total: entry.score.total,
+      dishPoints: entry.score.dishPoints,
+      moneyPoints: entry.score.moneyPoints,
+      renovationPoints: entry.score.renovationPoints,
+      branchPoints: entry.score.branchPoints,
+      money: entry.player.money,
+      renovationLevel: entry.player.renovationLevel,
+      branches: entry.player.branches.length,
+      recipesLabel: entry.player.recipes.map((r) => `${recipeDef(r.recipeId).name} ${r.stars}★`).join(", "),
+      opponents: state.players.length - 1,
+      outcome,
+      reason: state.winReason,
+    }));
+  } catch (e) {
+    // localStorage unavailable (private browsing, disabled storage, headless test) — best score just won't persist
+  }
+}
+
+function initGame(aiCount = 1) {
   document.documentElement.style.setProperty("--menu-bg-url", `url(${GAME_DATA.menuBg2})`);
   document.documentElement.style.setProperty("--log-bg-url", `url(${GAME_DATA.logBg})`);
   const recipePile = shuffle(GAME_DATA.recipes.map((r) => r.id));
-  const players = [createPlayer("p1", "Player 1"), createPlayer("p2", "Player 2 (AI)")];
+  const players = [createPlayer(HUMAN_PLAYER_ID, "Player 1")];
+  for (let i = 0; i < aiCount; i++) {
+    const id = `p${i + 2}`;
+    players.push(createPlayer(id, `Player ${i + 2} (AI)`));
+  }
   for (const p of players) {
     const rid = recipePile.shift();
     p.recipes.push({ recipeId: rid, level: 0, stars: 0 });
@@ -181,13 +222,13 @@ function initGame() {
   const menu = [];
   for (let i = 0; i < 5; i++) if (recipePile.length) menu.push(recipePile.shift());
 
-  const guestPile = shuffle(weightedIds(GAME_DATA.guests));
-  const eventPile = shuffle(weightedIds(GAME_DATA.events));
+  const guestPile = shuffle(weightedIds(GAME_DATA.guests, players.length));
+  const eventPile = shuffle(weightedIds(GAME_DATA.events, players.length));
 
   const villages = { start: { ...START_VILLAGE } };
   for (const node of MAP_NODES) if (node.id !== "start") villages[node.id] = null;
 
-  const branchOwners = { start: [players[0].id, players[1].id] };
+  const branchOwners = { start: players.map((p) => p.id) };
   for (const node of MAP_NODES) if (node.id !== "start") branchOwners[node.id] = [];
 
   const villageDeck = shuffle(GAME_DATA.villagePopulations);
@@ -201,7 +242,7 @@ function initGame() {
     anyRecipeDevelopedThisRound: false,
   };
   refreshGuestCapacity(players[0]);
-  logMsg("Game started. Everyone begins with $20, 2 vegetable, 2 wheat, wooden spoon, and a free branch at Start. Player 2 is AI-controlled.");
+  logMsg(`Game started. Everyone begins with $20, 2 vegetable, 2 wheat, wooden spoon, and a free branch at Start. ${aiCount} AI ${aiCount === 1 ? "opponent" : "opponents"}.`);
   render();
 }
 
@@ -365,11 +406,11 @@ function endTurn() {
   }
 }
 
-function weightedIds(cards) {
+function weightedIds(cards, numPlayers) {
   const out = [];
   for (const c of cards) {
     let n = c.count;
-    if (n === "numPlayers") n = 2; // this demo is fixed at 2 players
+    if (n === "numPlayers") n = numPlayers;
     if (typeof n !== "number" || n < 1) n = 1;
     for (let i = 0; i < n; i++) out.push(c.id);
   }
@@ -381,10 +422,10 @@ function weightedIds(cards) {
 function drawCard() {
   const roll = Math.random();
   if (roll < 0.75) {
-    if (state.guestPile.length === 0) state.guestPile = shuffle(weightedIds(GAME_DATA.guests));
+    if (state.guestPile.length === 0) state.guestPile = shuffle(weightedIds(GAME_DATA.guests, state.players.length));
     return { id: state.guestPile.shift(), kind: "guest" };
   } else {
-    if (state.eventPile.length === 0) state.eventPile = shuffle(weightedIds(GAME_DATA.events));
+    if (state.eventPile.length === 0) state.eventPile = shuffle(weightedIds(GAME_DATA.events, state.players.length));
     return { id: state.eventPile.shift(), kind: "event" };
   }
 }
@@ -1532,7 +1573,6 @@ const MAP_ACTION_BUTTONS = [
 ];
 
 function renderMap(gates) {
-  const p1 = state.players[0], p2 = state.players[1];
   let html = `<img src="${GAME_DATA.mapBg}" alt="Village map" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;">`;
 
   for (const node of MAP_NODES) {
@@ -1550,8 +1590,8 @@ function renderMap(gates) {
 
     const owners = state.branchOwners[node.id] || [];
     owners.forEach((pid, idx) => {
-      const color = pid === "p1" ? "#c1502e" : "#4a7c59";
-      html += `<div class="map-pin" style="left:${node.x}%;top:calc(${node.y}% - 16px - ${idx * 20}px);background:${color};">${pid === "p1" ? "P1" : "P2"}</div>`;
+      const color = PLAYER_COLORS[pid] || "#8a7d67";
+      html += `<div class="map-pin" style="left:${node.x}%;top:calc(${node.y}% - 16px - ${idx * 20}px);background:${color};">${pid.toUpperCase()}</div>`;
     });
   }
 
@@ -1663,22 +1703,34 @@ function showGameEndDialog() {
     : `It's a tie! (${state.winReason})`;
 
   const body = document.getElementById("modalBody");
-  body.innerHTML = state.finalScores.map(({ player, score }) => `
-    <div style="text-align:left;border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:10px;">
-      <strong>${player.name} \u2014 ${score.total} points</strong>
-      <div style="font-size:12px;color:var(--muted);margin-top:4px;line-height:1.6;">
-        Dishes (\u03a3 stars\u00b2 \u00d7 2): ${score.dishPoints} pts
-        &mdash; ${player.recipes.map((r) => `${recipeDef(r.recipeId).name} ${r.stars}\u2605`).join(", ") || "none"}<br>
-        Money: $${player.money} \u2192 ${score.moneyPoints} pts<br>
-        Renovation: ${player.renovationLevel} \u00d7 1 = ${score.renovationPoints} pts<br>
-        Branches: ${player.branches.length} \u00d7 4 = ${score.branchPoints} pts
-      </div>
-    </div>
-  `).join("") + `<button onclick="document.getElementById('modalBackdrop').style.display='none'">Close</button>`;
+  body.innerHTML = state.finalScores.map(({ player, score }) => scoreCardHtml(player.name, {
+    ...score,
+    money: player.money,
+    renovationLevel: player.renovationLevel,
+    branches: player.branches.length,
+    recipesLabel: player.recipes.map((r) => `${recipeDef(r.recipeId).name} ${r.stars}\u2605`).join(", "),
+  })).join("") + `<button onclick="document.getElementById('modalBackdrop').style.display='none'">Close</button>`;
 
   document.getElementById("modalBox").classList.remove("modal-wide");
   document.getElementById("modalBox").classList.remove("modal-transparent");
   backdrop.style.display = "flex";
+}
+
+// Shared score-breakdown card markup, used by both the end-of-game dialog
+// and the splash screen's "Best score" dialog (which reads a plain object
+// out of localStorage rather than a live player/score pair).
+function scoreCardHtml(name, s) {
+  return `
+    <div style="text-align:left;border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:10px;">
+      <strong>${name} \u2014 ${s.total} points</strong>
+      <div style="font-size:12px;color:var(--muted);margin-top:4px;line-height:1.6;">
+        Dishes (\u03a3 stars\u00b2 \u00d7 2): ${s.dishPoints} pts
+        &mdash; ${s.recipesLabel || "none"}<br>
+        Money: $${s.money} \u2192 ${s.moneyPoints} pts<br>
+        Renovation: ${s.renovationLevel} \u00d7 1 = ${s.renovationPoints} pts<br>
+        Branches: ${s.branches} \u00d7 4 = ${s.branchPoints} pts
+      </div>
+    </div>`;
 }
 
 function renderOwnedRecipe(r, p, playerIdx) {
@@ -1702,6 +1754,56 @@ function renderOwnedRecipe(r, p, playerIdx) {
     </div>`;
 }
 
-initGame();
+// ============== SPLASH SCREEN ==============
+let selectedAiCount = 1;
 
+function aiCountButtonsHtml() {
+  return Array.from({ length: MAX_AI_OPPONENTS }, (_, i) => i + 1).map((n) =>
+    `<button class="ai-count-btn${n === selectedAiCount ? " selected" : ""}" onclick="selectAiCount(${n})">${n}</button>`
+  ).join("");
+}
 
+function showSinglePlayerDialog() {
+  selectedAiCount = 1;
+  document.getElementById("modalImgWrap").innerHTML = "";
+  document.getElementById("modalTitle").textContent = "How many AI opponents?";
+  document.getElementById("modalEffect").textContent = "";
+  document.getElementById("modalBody").innerHTML = `
+    <div class="ai-count-row" id="aiCountRow">${aiCountButtonsHtml()}</div>
+    <div class="row-btns" style="margin-top:14px;">
+      <button class="primary" onclick="confirmGameStart()">Game start</button>
+      <button onclick="document.getElementById('modalBackdrop').style.display='none'">Cancel</button>
+    </div>`;
+  document.getElementById("modalBox").classList.remove("modal-wide");
+  document.getElementById("modalBox").classList.remove("modal-transparent");
+  document.getElementById("modalBackdrop").style.display = "flex";
+}
+
+function selectAiCount(n) {
+  selectedAiCount = n;
+  document.getElementById("aiCountRow").innerHTML = aiCountButtonsHtml();
+}
+
+function confirmGameStart() {
+  document.getElementById("modalBackdrop").style.display = "none";
+  document.getElementById("splashScreen").style.display = "none";
+  document.getElementById("gameWrap").style.display = "";
+  initGame(selectedAiCount);
+}
+
+function showBestScoreDialog() {
+  document.getElementById("modalImgWrap").innerHTML = "";
+  document.getElementById("modalTitle").textContent = "Best Score";
+  document.getElementById("modalEffect").textContent = "";
+  let record = null;
+  try { record = JSON.parse(localStorage.getItem("cafeFantasiaBestScore") || "null"); } catch (e) { /* localStorage unavailable */ }
+  const outcomeLabel = record && (record.outcome === "win" ? "Won" : record.outcome === "tie" ? "Tied" : "Lost");
+  document.getElementById("modalBody").innerHTML = (record
+    ? scoreCardHtml("Player 1", record) +
+      `<p style="font-size:12px;color:var(--muted);margin-top:-4px;">vs ${record.opponents} AI — ${outcomeLabel} (${record.reason})</p>`
+    : `<p>No games completed yet — play a round to set your first record!</p>`
+  ) + `<button onclick="document.getElementById('modalBackdrop').style.display='none'">Close</button>`;
+  document.getElementById("modalBox").classList.remove("modal-wide");
+  document.getElementById("modalBox").classList.remove("modal-transparent");
+  document.getElementById("modalBackdrop").style.display = "flex";
+}

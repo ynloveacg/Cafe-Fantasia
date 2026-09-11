@@ -27,6 +27,18 @@
   .ai-count-row .ai-count-btn { display: inline-block; width: 48px; height: 48px; margin: 0; padding: 0; border-radius: 50%; border: 1px solid var(--border); background: var(--bg); font-size: 16px; font-weight: 600; cursor: pointer; }
   .ai-count-row .ai-count-btn:hover { border-color: var(--accent); }
   .ai-count-row .ai-count-btn.selected { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+  .story-screen { min-height: 100vh; display: flex; flex-direction: column; background-image: url(assets/story/Story-BG.jpg); background-size: cover; background-position: center; }
+  .story-header { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 16px 0; background: rgba(250,241,224,0.85); border-bottom: 1px solid var(--border); }
+  .story-logo-icon { font-size: 18px; line-height: 1; }
+  .story-logo-text { font-family: Georgia, "Times New Roman", serif; font-style: italic; font-size: 21px; font-weight: 700; color: var(--text); letter-spacing: 0.5px; }
+  .story-body { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 32px 20px; gap: 24px; }
+  .story-image-wrap { max-width: 760px; width: 100%; }
+  .story-image-wrap img { display: block; width: 100%; height: auto; }
+  .story-text { max-width: 760px; width: 100%; margin: 0; font-size: 16px; line-height: 1.7; color: var(--accent); text-align: left; }
+  .story-nav { max-width: 760px; width: 100%; display: flex; justify-content: space-between; gap: 12px; }
+  .story-btn { padding: 12px 30px; border-radius: 22px; border: none; background: var(--btn-blue); color: #fff; font-size: 15px; font-weight: 600; cursor: pointer; }
+  .story-btn:hover { filter: brightness(1.08); }
   .status { display: flex; justify-content: space-between; align-items: center; background: var(--bg); border-bottom: 2px solid var(--border); padding: 10px 4px 14px; margin-bottom: 1.25rem; font-size: 14px; }
   .status b { color: var(--accent); }
   .status-left { display: flex; align-items: center; gap: 10px; }
@@ -127,8 +139,24 @@
     <h1 class="splash-title">Fantasia Cafe</h1>
     <p class="splash-subtitle">Isekai cafe simulation game</p>
     <div class="splash-buttons">
+      <button class="splash-btn secondary" onclick="showStoryScreen()">Tutorial</button>
       <button class="splash-btn" onclick="showSinglePlayerDialog()">Single Player</button>
       <button class="splash-btn secondary" onclick="showBestScoreDialog()">Best score</button>
+    </div>
+  </div>
+</div>
+
+<div id="storyScreen" class="story-screen" style="display:none">
+  <div class="story-header">
+    <span class="story-logo-icon">☕</span>
+    <span class="story-logo-text">Café Fantasia</span>
+  </div>
+  <div class="story-body">
+    <div class="story-image-wrap"><img id="storyImage" src="" alt="Story illustration"></div>
+    <p class="story-text" id="storyText"></p>
+    <div class="story-nav">
+      <button class="story-btn" id="storyBackBtn" onclick="storyBack()">Back</button>
+      <button class="story-btn" id="storyNextBtn" onclick="storyNext()">Next</button>
     </div>
   </div>
 </div>

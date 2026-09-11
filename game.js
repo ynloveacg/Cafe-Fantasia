@@ -1809,3 +1809,68 @@ function showBestScoreDialog() {
   document.getElementById("modalBox").classList.remove("modal-transparent");
   document.getElementById("modalBackdrop").style.display = "flex";
 }
+
+// ============== BACKGROUND STORY ==============
+const STORY_PAGES = [
+  {
+    image: "assets/story/Story-01.png",
+    text: "Deep in the enchanted Fantasy Forest, three distinct nations lived in total silence: the nimble Catfolks, who spent their days by the riverbanks; the towering Giants, who stalked the high ridges; and the solitary Elves, who tended the ancient groves. Though bound by the same woods, they shared neither words nor harvests, keeping strictly to their own worlds.",
+    back: "Back",
+  },
+  {
+    image: "assets/story/Story-02.png",
+    text: "According to ancient legend, a cat adventurer vanished into a hidden forest portal, only to reappear a century later with an extraordinary tale. He published a memoir claiming he had spent a year on a distant world called “Earth,” living among strange creatures known as “Humans” — though by his account, nothing in the cosmos rivaled the sheer delight of their cuisine.",
+    back: "Previous",
+  },
+  {
+    image: "assets/story/Story-03.png",
+    text: "In his grand chronicle, the adventurer detailed the delicacies of Earth, marveling at how its finest dining places were awarded up to three prestigious Michelin stars. “My ultimate dream,” he wrote, “is to build a three-star restaurant right here in the Fantasy Forest—a sanctuary serving the incredible flavors of Earth, where Catfolk, Giants, and Elves can finally share a table, a meal, and a story.”",
+    back: "Previous",
+  },
+  {
+    image: "assets/story/Story-04.png",
+    text: "Shortly after finishing his chronicle, the legendary adventurer succumbed to illness and passed away, leaving behind a vision that ignited the hearts of a new generation. Among those inspired is you. To claim the title of the forest’s first three-star Michelin restaurateur, you must forage for rare ingredients, craft new recipes, and master the culinary arts. Can you turn a legendary dream into reality?",
+    back: "Previous",
+    next: "Let's start!",
+  },
+];
+
+let storyPageIndex = 0;
+
+function showStoryScreen() {
+  storyPageIndex = 0;
+  document.getElementById("splashScreen").style.display = "none";
+  document.getElementById("storyScreen").style.display = "flex";
+  renderStoryPage();
+}
+
+function renderStoryPage() {
+  const page = STORY_PAGES[storyPageIndex];
+  document.getElementById("storyImage").src = page.image;
+  document.getElementById("storyText").textContent = page.text;
+  document.getElementById("storyBackBtn").textContent = page.back;
+  document.getElementById("storyNextBtn").textContent = page.next || "Next";
+}
+
+function storyBack() {
+  if (storyPageIndex === 0) {
+    document.getElementById("storyScreen").style.display = "none";
+    document.getElementById("splashScreen").style.display = "flex";
+    return;
+  }
+  storyPageIndex -= 1;
+  renderStoryPage();
+}
+
+function storyNext() {
+  if (storyPageIndex === STORY_PAGES.length - 1) {
+    // Tutorial mode isn't built yet — fall straight into the normal Single
+    // Player flow so "Let's start!" doesn't dead-end. Swap this for the
+    // real tutorial entry point once that's built.
+    document.getElementById("storyScreen").style.display = "none";
+    showSinglePlayerDialog();
+    return;
+  }
+  storyPageIndex += 1;
+  renderStoryPage();
+}

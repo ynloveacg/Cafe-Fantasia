@@ -4,13 +4,16 @@
 <meta charset="UTF-8">
 <title>Cafe Fantasia — Playable Preview</title>
 <style>
+  @font-face { font-family: "Iosevka Charon"; src: url(assets/fonts/IosevkaCharon-Regular.woff2) format("woff2"); font-weight: 400; font-style: normal; font-display: swap; }
+  @font-face { font-family: "Iosevka Charon"; src: url(assets/fonts/IosevkaCharon-Medium.woff2) format("woff2"); font-weight: 500; font-style: normal; font-display: swap; }
+  @font-face { font-family: "Iosevka Charon"; src: url(assets/fonts/IosevkaCharon-Bold.woff2) format("woff2"); font-weight: 700; font-style: normal; font-display: swap; }
   :root {
     --bg: #faf1e0; --panel: #ffffff; --border: #e2d9c6; --text: #3a2f22;
     --muted: #8a7d67; --accent: #c1502e; --accent2: #4a7c59;
     --navy: #2c3454; --navy-light: #3d466b; --btn-blue: #6fa0bc;
   }
   * { box-sizing: border-box; }
-  body { font-family: -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 0 0 3rem; }
+  body { font-family: "Iosevka Charon", -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 0 0 3rem; }
   .wrap { max-width: 1400px; margin: 0 auto; }
 
   .splash { min-height: 100vh; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; background: linear-gradient(135deg, var(--navy), var(--navy-light)); }

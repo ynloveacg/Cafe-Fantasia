@@ -1951,7 +1951,7 @@ const TUTORIAL_STEPS = [
     done: (snap) => state.players[0].guestsServedTotal > snap,
   },
   { // 7
-    highlight: { type: "css", selector: "#modalImgWrap" },
+    highlight: { type: "css", selector: ".continue-btn" },
     text: "After you cook a dish, you will serve it to a guest that matches the dish type. This time a Gardener of elf type shows up. Guests with different jobs will bring you different benefits. Click “Continue” now.",
     onEnter: () => state.players[0].ingredients.vegetable,
     done: (snap) => state.players[0].ingredients.vegetable > snap,
@@ -1964,7 +1964,7 @@ const TUTORIAL_STEPS = [
     done: (snap) => state.players[0].guestsServedTotal > snap,
   },
   { // 9
-    highlight: { type: "css", selector: "#modalImgWrap" },
+    highlight: { type: "css", selector: ".continue-btn" },
     text: "When you serve a dish, sometimes an event instead of a guest will be triggered. Most events affect all players.",
     onEnter: () => state.players[0].ingredients.fruit,
     done: (snap) => state.players[0].ingredients.fruit > snap,
@@ -2067,11 +2067,11 @@ function tutorialClearHighlights() {
   document.querySelectorAll(".tutorial-highlight").forEach((el) => el.classList.remove("tutorial-highlight"));
 }
 
-function tutorialApplyHighlight(step) {
+function tutorialApplyHighlight(step, scroll) {
   tutorialClearHighlights();
   const els = tutorialFindElements(step.highlight);
   els.forEach((el) => el.classList.add("tutorial-highlight"));
-  if (els[0]) els[0].scrollIntoView({ behavior: "smooth", block: "center" });
+  if (scroll && els[0]) els[0].scrollIntoView({ behavior: "smooth", block: "center" });
 }
 
 function tutorialApplyGating(step) {
@@ -2124,12 +2124,19 @@ function tutorialOnRender() {
     return;
   }
 
-  if (tutorial.stepShown !== tutorial.index) {
+  const isNewStep = tutorial.stepShown !== tutorial.index;
+  if (isNewStep) {
     tutorial.stepShown = tutorial.index;
     tutorial.snapshot = step.onEnter ? step.onEnter() : null;
-    tutorialApplyHighlight(step);
-    tutorialApplyGating(step);
   }
+  // Re-applied on every render (not just when the step first activates):
+  // several things call render() more than once while a step is still
+  // active — e.g. startTutorial()'s own setup, or a modal opening after the
+  // step's activating render() already ran — and each of those rebuilds
+  // fresh, un-gated DOM (map buttons, recipe cards, ...) from scratch. Only
+  // the scroll-into-view is one-time, so the page doesn't keep jumping.
+  tutorialApplyHighlight(step, isNewStep);
+  tutorialApplyGating(step);
 
   if (!step.manual && step.done(tutorial.snapshot)) {
     tutorialAdvance();

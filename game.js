@@ -420,6 +420,12 @@ function weightedIds(cards, numPlayers) {
 // After cooking: 3/4 chance the card is a guest (typed to match the dish
 // just served), 1/4 chance it's an event.
 function drawCard() {
+  // Tutorial hook: force specific cards for the scripted tutorial's first
+  // couple of cooks instead of drawing randomly. No-op outside tutorial mode.
+  if (tutorial && tutorial.forcedDraws && tutorial.forcedDraws.length) {
+    const id = tutorial.forcedDraws.shift();
+    return { id, kind: cardDef(id).kind };
+  }
   const roll = Math.random();
   if (roll < 0.75) {
     if (state.guestPile.length === 0) state.guestPile = shuffle(weightedIds(GAME_DATA.guests, state.players.length));
@@ -659,7 +665,17 @@ function actionExplore() {
   const options = emptyNeighbors(p.position);
   if (options.length === 0 || state.villageDeck.length === 0) return;
   const target = options[Math.floor(Math.random() * options.length)];
-  const population = state.villageDeck.shift();
+  // Tutorial hook: force the human's own explore to a specific population
+  // (the AI may explore earlier in the same round and would otherwise
+  // consume a plain villageDeck-order forced entry first). No-op outside
+  // tutorial mode.
+  let population;
+  if (tutorial && tutorial.forceNextExplorePopulation && !isBot(p)) {
+    population = tutorial.forceNextExplorePopulation;
+    tutorial.forceNextExplorePopulation = null;
+  } else {
+    population = state.villageDeck.shift();
+  }
   state.villages[target] = population;
   p.position = target;
   const desc = Object.entries(population).map(([k, v]) => `${v} ${k}`).join(", ");
@@ -1694,6 +1710,9 @@ function render() {
     state.gameEndDialogShown = true;
     showGameEndDialog();
   }
+
+  // Tutorial hook: no-op outside tutorial mode.
+  if (tutorial) tutorialOnRender();
 }
 
 function showGameEndDialog() {
@@ -1864,13 +1883,321 @@ function storyBack() {
 
 function storyNext() {
   if (storyPageIndex === STORY_PAGES.length - 1) {
-    // Tutorial mode isn't built yet — fall straight into the normal Single
-    // Player flow so "Let's start!" doesn't dead-end. Swap this for the
-    // real tutorial entry point once that's built.
     document.getElementById("storyScreen").style.display = "none";
-    showSinglePlayerDialog();
+    startTutorial();
     return;
   }
   storyPageIndex += 1;
   renderStoryPage();
+}
+
+// ============== STEP-BY-STEP TUTORIAL ==============
+// A self-contained "guided tour" layered on top of a normal game. It never
+// changes normal gameplay: `tutorial` is null outside tutorial mode, so the
+// two hooks in render()/drawCard() above are no-ops, and everything below
+// only ever reads game state and toggles disabled/class attributes on
+// already-rendered elements — it never edits how the game itself behaves.
+//
+// Each step matches its target element(s) by the text the game already
+// renders (a map button's label, a recipe's name, ...) rather than needing
+// new hooks/attributes on the normal render functions, so this stays fully
+// additive.
+let tutorial = null; // { index, stepShown, snapshot, forcedDraws, otherPlayersSeen }
+
+// Some modals (e.g. "Other Players") toggle #modalBackdrop's style directly
+// with no render() call in between, so render()'s tutorial hook alone would
+// never see them open or close. This observer is the only way to react to
+// those transitions; it's a no-op whenever tutorial is null.
+if (typeof MutationObserver !== "undefined") {
+  new MutationObserver(() => { if (tutorial) tutorialOnRender(); })
+    .observe(document.getElementById("modalBackdrop"), { attributes: true, attributeFilter: ["style"] });
+}
+
+const TUTORIAL_STEPS = [
+  { // 1
+    highlight: { type: "css", selector: "#mapContainer" },
+    text: "This is where we live, Fantasy Forest. We have our flagship restaurant in this starting village - 1 catfolk, 1 giant and 1 elf live here.",
+    manual: true, ctaLabel: "Next",
+  },
+  { // 2
+    highlight: { type: "css", selector: "#player1Panel .recipes-owned" },
+    text: "Here is your restaurant. You have 1 dish in your menu to start with - Fruit cake. Its ingredients are fruit and wheat, and it's an elf-type dish. Let's gather ingredients next. You have 3 actions before you can open the restaurant and cook the dish for your turn.",
+    manual: true, ctaLabel: "Next",
+  },
+  { // 3
+    highlight: { type: "mapBtn", label: "Fruit picking" },
+    allow: { type: "mapBtn", label: "Fruit picking" },
+    text: "Because you already have 2 vegetables and 2 wheat at the beginning of the game, the only ingredient you need now is fruit. Since you have a wooden spoon, you will harvest 2 fruits. To gather ingredients more efficiently, upgrade your spoon in the shop later. Now, click “Fruit picking”.",
+    onEnter: () => state.players[0].ingredients.fruit,
+    done: (snap) => state.players[0].ingredients.fruit > snap,
+  },
+  { // 4
+    highlight: { type: "developBtn", name: "Whisky" },
+    allow: { type: "developBtn", name: "Whisky" },
+    text: "Next, you need more dishes for your restaurant! Here is a list of recipes you can develop. Whisky and wine are free. Now let's develop the menu for Whisky!",
+    done: () => state.players[0].recipes.some((r) => r.recipeId === "r28"),
+  },
+  { // 5
+    highlight: { type: "renoPill" },
+    allow: { type: "renoPill" },
+    text: "Here is how your restaurant looks now. When renovation reaches certain levels, you will gain extra tips per dish you cook. Let's renovate to make it look better now!",
+    done: () => state.players[0].renovationLevel >= 1,
+  },
+  { // 6
+    highlight: { type: "cookThumb", name: "Fruit cake" },
+    allow: { type: "cookThumb", name: "Fruit cake" },
+    text: "You've used up all 3 actions. Now your restaurant is open for business. Click the fruit cake to make one!",
+    onEnter: () => state.players[0].guestsServedTotal,
+    done: (snap) => state.players[0].guestsServedTotal > snap,
+  },
+  { // 7
+    highlight: { type: "css", selector: "#modalImgWrap" },
+    text: "After you cook a dish, you will serve it to a guest that matches the dish type. This time a Gardener of elf type shows up. Guests with different jobs will bring you different benefits. Click “Continue” now.",
+    onEnter: () => state.players[0].ingredients.vegetable,
+    done: (snap) => state.players[0].ingredients.vegetable > snap,
+  },
+  { // 8
+    highlight: { type: "cookThumb", name: "Whisky" },
+    allow: { type: "cookThumb", name: "Whisky" },
+    text: "Because we're in the beginning village, our guest pool just has 1 guest of each type, so we can't serve the fruit cake again. However, dishes with the “star” on the top right (whisky, wine, bread, salad) can serve any guest type. It will serve a random guest type from your guest pool. Click Whisky to serve now!",
+    onEnter: () => state.players[0].guestsServedTotal,
+    done: (snap) => state.players[0].guestsServedTotal > snap,
+  },
+  { // 9
+    highlight: { type: "css", selector: "#modalImgWrap" },
+    text: "When you serve a dish, sometimes an event instead of a guest will be triggered. Most events affect all players.",
+    onEnter: () => state.players[0].ingredients.fruit,
+    done: (snap) => state.players[0].ingredients.fruit > snap,
+  },
+  { // 10
+    highlight: { type: "css", selector: "#player1Panel .recipes-owned" },
+    text: "After cooking a dish, your proficiency of that dish will increase, +1 per cook on a wooden spoon, +2 on a silver spoon, +3 on a golden spoon. 3 proficiency = 1 star, and the price of the dish will also increase by 1 for each star.",
+    manual: true, ctaLabel: "Next",
+  },
+  { // 11
+    highlight: { type: "endTurn" },
+    allow: { type: "endTurn" },
+    text: "With a wooden spoon, veggie and wheat will grow 1 at the end of your turn. They will grow more with a silver or a golden spoon. But if you use up all veggies or wheat within your turn, they won't grow back. It's better to save 1 wheat and 1 veggie for it to keep growing at the end of the turn. Now click the \"End turn\" button.",
+    onEnter: () => state.turnIndex,
+    done: (snap) => state.turnIndex !== snap,
+  },
+  { // 12
+    highlight: { type: "css", selector: "#player1Panel .stat-row" },
+    text: "At the end of your turn, 1 random ingredient will rotten, unless you have bought a fridge from the shop.",
+    manual: true, ctaLabel: "Next",
+  },
+  { // 13
+    highlight: { type: "css", selector: "#log" },
+    text: "You can view other player's moves in the game log anytime.",
+    manual: true, ctaLabel: "Next",
+    waitForHumanTurn: true,
+  },
+  { // 14
+    highlight: { type: "viewOthers" },
+    allow: { type: "viewOthers" },
+    text: "You can also view other player's restaurant status here as well.",
+    onEnter: () => { tutorial.otherPlayersSeen = false; },
+    done: () => tutorial.otherPlayersSeen && document.getElementById("modalBackdrop").style.display !== "flex",
+  },
+  { // 15
+    highlight: { type: "mapBtn", label: "Cultivate wheat" },
+    allow: { type: "mapBtn", label: "Cultivate wheat" },
+    text: "If you're out of veggie or wheat, you can use 1 action to cultivate. To have a larger storage, upgrade garden for $15 or farm with $10. Now try “Cultivate wheat”.",
+    onEnter: () => state.players[0].ingredients.wheat,
+    done: (snap) => state.players[0].ingredients.wheat > snap,
+  },
+  { // 16
+    highlight: { type: "mapBtn", label: "Explore" },
+    allow: { type: "mapBtn", label: "Explore" },
+    text: "Now let's explore what other villages look like in the forest. You will explore an empty slot on the map next to the discovered village.",
+    onEnter: () => state.players[0].position,
+    done: (snap) => state.players[0].position !== snap,
+  },
+  { // 17
+    highlight: { type: "mapBtn", label: "Open branch" },
+    allow: { type: "mapBtn", label: "Open branch" },
+    text: "Now let's open a branch for $20. Choose the village that has 2 catfolks and 2 elves.",
+    onEnter: () => state.players[0].branches.length,
+    done: (snap) => state.players[0].branches.length > snap,
+  },
+  { // 18
+    highlight: { type: "css", selector: "#player1Panel .recipes-owned" },
+    text: "During the game, when a “Michelin inspector” event card is drawn, if you reach 3 dishes with fully filled stars, you will be rated as a 3-star Michelin, and trigger the game end. Points will be calculated for each player. The player with the highest score wins. The more stars in total you have, the higher the score would be! This is the end of the tutorial. Have fun!",
+    manual: true, ctaLabel: "Got it",
+  },
+];
+
+const TUTORIAL_INTERACTIVE_SELECTORS = [
+  ".map-btn",
+  "#menuRow .recipe-market-card button",
+  ".recipe-thumb-wrap.cookable",
+  ".reno-pill.current",
+  ".end-turn-btn",
+  ".view-others-btn",
+];
+
+function tutorialFindElements(match) {
+  if (!match) return [];
+  switch (match.type) {
+    case "css":
+      return [...document.querySelectorAll(match.selector)];
+    case "mapBtn":
+      return [...document.querySelectorAll(".map-btn")].filter((b) => b.textContent.trim().startsWith(match.label));
+    case "developBtn":
+      return [...document.querySelectorAll("#menuRow .recipe-market-card")]
+        .filter((c) => c.querySelector(".name")?.textContent.trim() === match.name)
+        .map((c) => c.querySelector("button"));
+    case "cookThumb":
+      return [...document.querySelectorAll("#player1Panel .recipe-card")]
+        .filter((c) => c.querySelector(".recipe-name-label")?.textContent.trim().startsWith(match.name))
+        .map((c) => c.querySelector(".recipe-thumb-wrap.cookable"))
+        .filter(Boolean);
+    case "renoPill":
+      return [...document.querySelectorAll(".reno-pill.current")];
+    case "endTurn":
+      return [...document.querySelectorAll(".end-turn-btn")];
+    case "viewOthers":
+      return [...document.querySelectorAll(".view-others-btn")];
+    default:
+      return [];
+  }
+}
+
+function tutorialClearHighlights() {
+  document.querySelectorAll(".tutorial-highlight").forEach((el) => el.classList.remove("tutorial-highlight"));
+}
+
+function tutorialApplyHighlight(step) {
+  tutorialClearHighlights();
+  const els = tutorialFindElements(step.highlight);
+  els.forEach((el) => el.classList.add("tutorial-highlight"));
+  if (els[0]) els[0].scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+function tutorialApplyGating(step) {
+  const allowed = new Set(tutorialFindElements(step.allow));
+  for (const sel of TUTORIAL_INTERACTIVE_SELECTORS) {
+    document.querySelectorAll(sel).forEach((el) => {
+      if (allowed.has(el)) {
+        // Most interactive elements are rebuilt fresh by render() every
+        // time (map buttons, recipe cards, the end-turn button, ...), so a
+        // disabled state from an earlier step never lingers on them. But a
+        // few (e.g. "View other players") live in the static page shell and
+        // are never replaced, so a stale disabled from a previous step
+        // would otherwise persist — always explicitly re-enable the
+        // currently-allowed element(s) to cover that case too.
+        if (el.tagName === "BUTTON") el.disabled = false;
+        el.classList.remove("tutorial-locked");
+        return;
+      }
+      if (el.tagName === "BUTTON") el.disabled = true;
+      else { el.classList.add("tutorial-locked"); el.onclick = null; }
+    });
+  }
+}
+
+function tutorialRenderBar({ text, counter, showButton, buttonLabel }) {
+  document.getElementById("tutorialBar").style.display = "block";
+  document.getElementById("tutorialStepCounter").textContent = counter;
+  document.getElementById("tutorialText").textContent = text;
+  const btn = document.getElementById("tutorialNextBtn");
+  if (showButton) {
+    btn.style.display = "inline-block";
+    btn.textContent = buttonLabel || "Next";
+  } else {
+    btn.style.display = "none";
+  }
+}
+
+function tutorialOnRender() {
+  const step = TUTORIAL_STEPS[tutorial.index];
+  if (!step) return;
+
+  // The "Other players" modal has no hook of its own to tell us it closed —
+  // just notice it was opened whenever we happen to render while it's up.
+  if (document.getElementById("modalBackdrop").style.display === "flex" && document.getElementById("modalTitle").textContent === "Other Players") {
+    tutorial.otherPlayersSeen = true;
+  }
+
+  if (step.waitForHumanTurn && (isBot(currentPlayer()) || botRunning)) {
+    tutorialRenderBar({ text: "The AI is taking its turn...", counter: `Step ${tutorial.index + 1} of ${TUTORIAL_STEPS.length}`, showButton: false });
+    return;
+  }
+
+  if (tutorial.stepShown !== tutorial.index) {
+    tutorial.stepShown = tutorial.index;
+    tutorial.snapshot = step.onEnter ? step.onEnter() : null;
+    tutorialApplyHighlight(step);
+    tutorialApplyGating(step);
+  }
+
+  if (!step.manual && step.done(tutorial.snapshot)) {
+    tutorialAdvance();
+    return;
+  }
+
+  tutorialRenderBar({
+    text: step.text,
+    counter: `Step ${tutorial.index + 1} of ${TUTORIAL_STEPS.length}`,
+    showButton: !!step.manual,
+    buttonLabel: step.ctaLabel,
+  });
+}
+
+function tutorialAdvance() {
+  tutorial.index += 1;
+  if (tutorial.index >= TUTORIAL_STEPS.length) {
+    tutorialEnd();
+    return;
+  }
+  render();
+}
+
+function tutorialManualAdvance() {
+  tutorialAdvance();
+}
+
+function tutorialEnd() {
+  tutorial = null;
+  tutorialClearHighlights();
+  document.querySelectorAll(".tutorial-locked").forEach((el) => el.classList.remove("tutorial-locked"));
+  // Everything else gets rebuilt fresh (and correctly re-enabled per normal
+  // rules) by the render() call below, except this one static button.
+  document.querySelector(".view-others-btn").disabled = false;
+  document.getElementById("tutorialBar").style.display = "none";
+  render();
+}
+
+// Removes a recipe id from the shared pile/discard so a forced assignment
+// elsewhere can't cause it to be drawn again later as a duplicate.
+function tutorialReserveRecipe(id) {
+  const i1 = state.recipePile.indexOf(id);
+  if (i1 !== -1) state.recipePile.splice(i1, 1);
+  const i2 = state.recipeDiscard.indexOf(id);
+  if (i2 !== -1) state.recipeDiscard.splice(i2, 1);
+}
+
+function startTutorial() {
+  tutorial = { index: 0, stepShown: -1, snapshot: null, forcedDraws: [], otherPlayersSeen: false };
+
+  document.getElementById("splashScreen").style.display = "none";
+  document.getElementById("gameWrap").style.display = "";
+  initGame(1);
+
+  // Force the scripted setup on top of the freshly-initialized normal game
+  // state: the human's starting dish and develop-menu, the first village's
+  // population, and the first two card draws.
+  const human = state.players[0];
+  const ai = state.players[1];
+  const forcedRecipeIds = ["r21", "r28", "r16", "r03", "r05", "r13"]; // Fruit cake, Whisky, Fish & chips, BBQ, Burger, Salmon toast
+  forcedRecipeIds.forEach(tutorialReserveRecipe);
+  human.recipes = [{ recipeId: "r21", level: 0, stars: 0 }];
+  state.menu = ["r28", "r16", "r03", "r05", "r13"];
+  if (forcedRecipeIds.includes(ai.recipes[0].recipeId)) {
+    ai.recipes = [{ recipeId: drawRecipe(), level: 0, stars: 0 }];
+  }
+  tutorial.forceNextExplorePopulation = { cat: 2, elf: 2 };
+  tutorial.forcedDraws = ["g03", "e08"]; // Gardener (elf art, since Fruit cake is elf-type), then Harvest
+
+  render();
 }

@@ -13,6 +13,18 @@
     --navy: #2c3454; --navy-light: #3d466b; --btn-blue: #6fa0bc;
   }
   * { box-sizing: border-box; }
+  .tutorial-bar { display: none; position: sticky; top: 0; z-index: 70; background: #fff8ec; border-bottom: 2px solid var(--accent); box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+  .tutorial-bar-inner { max-width: 1400px; margin: 0 auto; padding: 10px 16px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .tutorial-step-counter { flex-shrink: 0; font-size: 11px; font-weight: 700; color: #fff; background: var(--accent); border-radius: 12px; padding: 4px 10px; }
+  .tutorial-text { flex: 1; min-width: 200px; font-size: 13px; line-height: 1.5; color: var(--text); }
+  .tutorial-next-btn { flex-shrink: 0; background: var(--accent); color: #fff; border: none; border-radius: 18px; padding: 8px 20px; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .tutorial-next-btn:hover { filter: brightness(1.1); }
+  .tutorial-highlight { position: relative; z-index: 5; border-radius: 10px; animation: tutorialPulse 1.6s ease-in-out infinite; }
+  @keyframes tutorialPulse {
+    0%, 100% { box-shadow: 0 0 0 3px var(--accent), 0 0 10px 2px rgba(193,80,46,0.55); }
+    50% { box-shadow: 0 0 0 3px var(--accent), 0 0 18px 6px rgba(193,80,46,0.85); }
+  }
+  .tutorial-locked { opacity: 0.4; pointer-events: none; }
   body { font-family: "Iosevka Charon", -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 0 0 3rem; }
   .wrap { max-width: 1400px; margin: 0 auto; }
 
@@ -162,6 +174,14 @@
       <button class="story-btn" id="storyBackBtn" onclick="storyBack()">Back</button>
       <button class="story-btn" id="storyNextBtn" onclick="storyNext()">Next</button>
     </div>
+  </div>
+</div>
+
+<div id="tutorialBar" class="tutorial-bar">
+  <div class="tutorial-bar-inner">
+    <span class="tutorial-step-counter" id="tutorialStepCounter"></span>
+    <span class="tutorial-text" id="tutorialText"></span>
+    <button class="tutorial-next-btn" id="tutorialNextBtn" style="display:none" onclick="tutorialManualAdvance()">Next</button>
   </div>
 </div>
 

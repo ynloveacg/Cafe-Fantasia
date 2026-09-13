@@ -1012,5 +1012,16 @@
  "fishingSuccessImg": "assets/misc/fishing-success.jpg",
  "fishingFailedImg": "assets/misc/fishing-failed.jpg",
  "huntingSuccessImg": "assets/misc/hunting-success.jpg",
- "huntingFailedImg": "assets/misc/hunting-failed.jpg"
+ "huntingFailedImg": "assets/misc/hunting-failed.jpg",
+ "itemImages": {
+  "coins": "assets/items/Coins.png",
+  "fridge": "assets/items/Fridge.png",
+  "spoonWooden": "assets/items/spoon-lv1.png",
+  "spoonSilver": "assets/items/spoon-lv2.png",
+  "spoonGolden": "assets/items/spoon-lv3.png"
+ },
+ "uiImages": {
+  "btnBlue": "assets/UI/Btn-blue.png",
+  "logo": "assets/UI/Logo-v4.jpg"
+ }
 }

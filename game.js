@@ -1561,13 +1561,13 @@ function renderPlayerCard(p, i, cookSectionHtml) {
   return `
     <div class="player${isCurrent ? " active" : ""}">
       <div class="player-topsection">
-        <div class="player-badges">
-          <img class="player-badge-icon" src="${spoonIconSrc}" alt="${spoonLabel}" title="${spoonLabel}">
-          <img class="player-badge-icon" src="${GAME_DATA.itemImages.fridge}" alt="${fridgeLabel}" title="${fridgeLabel}" style="opacity:${p.hasFridge ? 1 : 0.5};">
-        </div>
         <div class="player-header-row">
-          <div class="stat-row" style="margin:0;">${ing}</div>
           <div class="player-money"><img class="coin-icon" src="${GAME_DATA.itemImages.coins}" alt="$">${p.money}</div>
+          <div class="stat-row" style="margin:0;">${ing}</div>
+          <div class="player-badges">
+            <img class="player-badge-icon" src="${spoonIconSrc}" alt="${spoonLabel}" title="${spoonLabel}">
+            <img class="player-badge-icon" src="${GAME_DATA.itemImages.fridge}" alt="${fridgeLabel}" title="${fridgeLabel}" style="opacity:${p.hasFridge ? 1 : 0.5};">
+          </div>
         </div>
         <div class="recipes-owned">${recipeCards}${emptySlots}</div>
         ${cookSectionHtml || ""}
@@ -1629,6 +1629,7 @@ function renderMap(gates) {
 }
 
 function render() {
+  hideRecipeHoverPreview(); // the hovered element is about to be rebuilt/replaced below
   document.getElementById("roundNum").textContent = state.round;
   document.getElementById("turnPlayer").textContent = currentPlayer().name;
   document.getElementById("actionsLeft").textContent = state.actionsLeft;

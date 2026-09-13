@@ -65,11 +65,11 @@
 
   .player { color: #f2ede1; border-radius: 14px; width: 100%; }
   .player-topsection { position: relative; background-image: var(--menu-bg-url); background-size: 100% 100%; border-radius: 14px; padding: 16px; }
-  .player-header-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 34px; margin-bottom: 10px; }
-  .player-money { display: inline-flex; align-items: center; gap: 4px; font-weight: 700; font-size: 16px; color: #fff; margin-left: auto; white-space: nowrap; }
+  .player-header-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+  .player-money { display: inline-flex; align-items: center; gap: 4px; font-weight: 700; font-size: 16px; color: #fff; white-space: nowrap; }
   .coin-icon { width: 32px; height: 32px; object-fit: contain; }
-  .player-badges { position: absolute; top: -14px; right: -10px; display: flex; gap: 4px; z-index: 2; }
-  .player-badge-icon { width: 64px; height: 64px; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.35)); cursor: default; }
+  .player-badges { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+  .player-badge-icon { width: 28px; height: 28px; object-fit: contain; cursor: default; }
   .cook-section { display: flex; align-items: center; justify-content: space-between; gap: 12px; background: rgba(255,255,255,0.06); border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; }
   .cook-info { font-size: 12px; line-height: 1.5; }
   .end-turn-btn { flex-shrink: 0; background: var(--accent); color: #fff; border: none; border-radius: 20px; padding: 10px 20px; font-size: 13px; font-weight: 600; cursor: pointer; }
@@ -132,8 +132,8 @@
   .modal { background: #fff; border-radius: 12px; padding: 20px; max-width: 420px; width: 90%; text-align: center; max-height: 85vh; overflow-y: auto; }
   .modal.modal-wide { max-width: 1024px; }
   .modal.modal-transparent { background: transparent; box-shadow: none; padding: 0; max-width: none; width: auto; }
-  .continue-btn { background: var(--btn-blue); color: #fff; border: none; border-radius: 24px; padding: 12px 40px; font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 12px; }
-  .continue-btn:hover { filter: brightness(1.08); }
+  .modal .continue-btn { display: inline-block; width: auto; background-image: url(assets/UI/Btn-blue.png); background-size: 100% 100%; background-repeat: no-repeat; background-color: transparent; border: none; border-radius: 24px; color: #fff; padding: 10px 28px; font-size: 15px; font-weight: 600; cursor: pointer; margin: 12px 0 0; }
+  .modal .continue-btn:hover { filter: brightness(1.08); }
   .modal img { width: 140px; border-radius: 8px; margin-bottom: 10px; }
   .modal h3 { margin: 4px 0; }
   .modal p { font-size: 13px; color: var(--muted); margin-bottom: 12px; }
@@ -1213,11 +1213,11 @@ const GAME_DATA = {
   "assets/restaurant/level-10.jpg"
  ],
  "ingredientImages": {
-  "fish": "assets/ingredients/fish.jpg",
-  "fruit": "assets/ingredients/fruit.jpg",
-  "meat": "assets/ingredients/meat.jpg",
-  "vegetable": "assets/ingredients/vegetable.jpg",
-  "wheat": "assets/ingredients/wheat.jpg"
+  "fish": "assets/ingredients/Icon-fish.png",
+  "fruit": "assets/ingredients/Ingredient-fruit.png",
+  "meat": "assets/ingredients/Ingredient-meat.png",
+  "vegetable": "assets/ingredients/Ingredient-veggie.png",
+  "wheat": "assets/ingredients/Ingredient-wheat.png"
  },
  "guestTypeImages": {
   "cat": "assets/guest-types/cat.jpg",

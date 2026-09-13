@@ -45,8 +45,8 @@
 
   .story-screen { min-height: 100vh; display: flex; flex-direction: column; background-image: url(assets/story/Story-BG.jpg); background-size: cover; background-position: center; }
   .story-header { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 16px 0; background: rgba(250,241,224,0.85); border-bottom: 1px solid var(--border); }
-  .story-logo-icon { font-size: 18px; line-height: 1; }
-  .story-logo-text { font-family: Georgia, "Times New Roman", serif; font-style: italic; font-size: 21px; font-weight: 700; color: var(--text); letter-spacing: 0.5px; }
+  .game-logo { height: 36px; display: block; cursor: pointer; }
+  .splash-logo { position: absolute; top: 20px; left: 24px; }
   .story-body { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 32px 20px; gap: 24px; }
   .story-image-wrap { max-width: 760px; width: 100%; }
   .story-image-wrap img { display: block; width: 100%; height: auto; }
@@ -57,8 +57,6 @@
   .status { display: flex; justify-content: space-between; align-items: center; background: var(--bg); border-bottom: 2px solid var(--border); padding: 10px 4px 14px; margin-bottom: 1.25rem; font-size: 14px; }
   .status b { color: var(--accent); }
   .status-left { display: flex; align-items: center; gap: 10px; }
-  .logo-dot { width: 26px; height: 26px; border-radius: 50%; background: var(--navy); flex-shrink: 0; }
-  .game-title { font-weight: 700; font-size: 19px; margin-right: 14px; color: var(--text); }
   .view-others-btn { margin-left: 12px; padding: 6px 12px; border-radius: 16px; border: 1px solid var(--border); background: #fff; cursor: pointer; font-size: 12px; }
 
   .columns { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; align-items: start; }
@@ -66,10 +64,12 @@
   @media (max-width: 900px) { .columns { grid-template-columns: 1fr; } }
 
   .player { color: #f2ede1; border-radius: 14px; width: 100%; }
-  .player-topsection { background-image: var(--menu-bg-url); background-size: 100% 100%; border-radius: 14px; padding: 16px; }
-  .player-header-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
-  .player-name { font-weight: 700; font-size: 16px; color: #fff; white-space: nowrap; }
-  .player-money { font-weight: 700; font-size: 16px; color: #fff; margin-left: auto; white-space: nowrap; }
+  .player-topsection { position: relative; background-image: var(--menu-bg-url); background-size: 100% 100%; border-radius: 14px; padding: 16px; }
+  .player-header-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 34px; margin-bottom: 10px; }
+  .player-money { display: inline-flex; align-items: center; gap: 4px; font-weight: 700; font-size: 16px; color: #fff; margin-left: auto; white-space: nowrap; }
+  .coin-icon { width: 32px; height: 32px; object-fit: contain; }
+  .player-badges { position: absolute; top: -14px; right: -10px; display: flex; gap: 4px; z-index: 2; }
+  .player-badge-icon { width: 64px; height: 64px; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.35)); cursor: default; }
   .cook-section { display: flex; align-items: center; justify-content: space-between; gap: 12px; background: rgba(255,255,255,0.06); border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; }
   .cook-info { font-size: 12px; line-height: 1.5; }
   .end-turn-btn { flex-shrink: 0; background: var(--accent); color: #fff; border: none; border-radius: 20px; padding: 10px 20px; font-size: 13px; font-weight: 600; cursor: pointer; }
@@ -78,22 +78,21 @@
   .player h3 { margin: 0 0 10px; font-size: 16px; display: flex; justify-content: space-between; color: #fff; }
   .stat-row { display: flex; flex-wrap: wrap; gap: 6px; font-size: 12px; margin-bottom: 8px; }
   .pill { background: #f1e9d8; color: var(--text); border-radius: 20px; padding: 3px 9px; display: inline-flex; align-items: center; gap: 4px; }
-  .pill.status-pill { background: #fff; font-weight: 600; }
   .ing-icon { width: 18px; height: 18px; object-fit: contain; vertical-align: middle; }
 
   .recipes-owned { display: flex; flex-wrap: nowrap; gap: 10px; overflow-x: auto; margin-top: 4px; }
   .recipe-card { display: flex; flex-direction: column; align-items: center; width: 120px; min-width: 120px; flex-shrink: 0; }
   .recipe-thumb { width: 114px; max-height: 190px; object-fit: contain; border-radius: 6px; border: 1px solid rgba(0,0,0,0.15); background: #fff; display: block; transition: opacity 0.15s ease; }
-  .recipe-thumb-wrap { position: relative; display: inline-block; transition: transform 0.15s ease; transform-origin: center; }
+  .recipe-thumb-wrap { position: relative; display: inline-block; }
   .recipe-thumb-wrap.cookable { cursor: pointer; }
-  .recipe-thumb-wrap.cookable:hover { transform: scale(1.2); z-index: 5; }
   .recipe-thumb-wrap .cook-label { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(20,15,10,0.5); color: #fff; font-weight: 700; font-size: 15px; border-radius: 6px; letter-spacing: 0.5px; }
   .recipe-thumb-wrap.cookable:hover .cook-label { display: flex; }
   .recipe-name-label { font-size: 10px; text-align: center; margin-top: 6px; color: #fff; }
   .recipe-card.empty-slot { border: 2px dashed rgba(255,255,255,0.25); border-radius: 8px; height: 190px; width: 120px; min-width: 120px; display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.4); font-size: 11px; }
+  #recipeHoverPreview { position: fixed; display: none; pointer-events: none; z-index: 60; }
+  #recipeHoverPreview img { display: block; width: 228px; max-height: 380px; object-fit: contain; border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.45); background: #fff; }
 
   .restaurant-view { position: relative; border-radius: 10px; overflow: hidden; margin: 12px 0; height: 280px; background-size: cover; background-position: center; }
-  .restaurant-badges { position: absolute; top: 8px; right: 8px; display: flex; gap: 6px; }
 
   .renovation-overlay { position: absolute; left: 0; right: 0; bottom: 0; padding: 10px 10px 8px; background: linear-gradient(to top, rgba(20,15,10,0.75), rgba(20,15,10,0)); }
   .renovation-row { display: flex; gap: 4px; flex-wrap: wrap; }
@@ -116,10 +115,12 @@
   .actions-row button:disabled { opacity: 0.35; cursor: not-allowed; }
 
   .map-wrap { position: relative; border-radius: 14px; overflow: hidden; background-size: cover; background-position: center; min-height: 420px; }
-  .map-btn { position: absolute; transform: translate(-50%, -50%); padding: 7px 12px; border-radius: 18px; border: none; background: var(--btn-blue); color: #fff; cursor: pointer; font-size: 11px; font-weight: 500; text-align: left; line-height: 1.3; box-shadow: 0 2px 4px rgba(0,0,0,0.2); max-width: 130px; }
+  .map-btn { position: absolute; transform: translate(-50%, -50%); display: flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 18px; border: none; background-image: url(assets/UI/Btn-blue.png); background-size: 100% 100%; background-repeat: no-repeat; color: #fff; cursor: pointer; font-size: 11px; font-weight: 500; text-align: left; line-height: 1.3; box-shadow: 0 2px 4px rgba(0,0,0,0.2); width: max-content; white-space: nowrap; }
   .map-btn:hover:not(:disabled) { filter: brightness(1.08); }
   .map-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-  .map-btn small { display: block; font-weight: 400; opacity: 0.85; font-size: 9px; }
+  .map-btn-icon { width: 20px; height: 20px; object-fit: contain; flex-shrink: 0; }
+  .map-btn-text { display: flex; flex-direction: column; }
+  .map-btn small { display: block; font-weight: 400; opacity: 0.85; font-size: 9px; white-space: nowrap; }
   .map-pin { position: absolute; transform: translate(-50%, -100%); width: 22px; height: 22px; border-radius: 50% 50% 50% 0; transform-origin: bottom; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 10px; font-weight: 700; border: 2px solid #fff; }
 
   .log { background-image: var(--log-bg-url); background-size: 100% 100%; padding: 24px 28px; height: 108px; overflow-y: auto; font-size: 12px; color: var(--text); }
@@ -151,6 +152,7 @@
 </head>
 <body>
 <div id="splashScreen" class="splash">
+  <img class="game-logo splash-logo" src="assets/UI/Logo-v4.jpg" alt="Café Fantasia" onclick="goToSplashScreen()">
   <div class="splash-content">
     <h1 class="splash-title">Fantasia Cafe</h1>
     <p class="splash-subtitle">Isekai cafe simulation game</p>
@@ -164,8 +166,7 @@
 
 <div id="storyScreen" class="story-screen" style="display:none">
   <div class="story-header">
-    <span class="story-logo-icon">☕</span>
-    <span class="story-logo-text">Café Fantasia</span>
+    <img class="game-logo" src="assets/UI/Logo-v4.jpg" alt="Café Fantasia" onclick="goToSplashScreen()">
   </div>
   <div class="story-body">
     <div class="story-image-wrap"><img id="storyImage" src="" alt="Story illustration"></div>
@@ -189,8 +190,7 @@
   <div id="winBanner" style="display:none" class="win-banner"></div>
   <div class="status">
     <div class="status-left">
-      <div class="logo-dot"></div>
-      <span class="game-title">Caf\u00e9 Fantasia</span>
+      <img class="game-logo" src="assets/UI/Logo-v4.jpg" alt="Caf\u00e9 Fantasia" onclick="goToSplashScreen()" style="margin-right:14px;">
       <span>Round <b id="roundNum">1</b> &middot; <b id="turnPlayer"></b>'s turn <i id="aiThinking" style="display:none;color:var(--accent)">&middot; thinking&hellip;</i></span>
     </div>
     <div>
@@ -212,6 +212,10 @@
   </div>
 
   <p class="note">Every other player is AI-controlled (simple heuristics, not an LLM — see chat for why). Cooking is unlimited in count but gated by the guest capacity from your branches, and only unlocks after your 3 prep actions are used — click End turn when you're finished. Everything else — card art, effects, points, renovation tips — runs the real logic.</p>
+</div>
+
+<div id="recipeHoverPreview">
+  <img id="recipeHoverPreviewImg" src="" alt="">
 </div>
 
 <div id="modalBackdrop" class="modal-backdrop" style="display:none">
@@ -1238,7 +1242,18 @@ const GAME_DATA = {
  "fishingSuccessImg": "assets/misc/fishing-success.jpg",
  "fishingFailedImg": "assets/misc/fishing-failed.jpg",
  "huntingSuccessImg": "assets/misc/hunting-success.jpg",
- "huntingFailedImg": "assets/misc/hunting-failed.jpg"
+ "huntingFailedImg": "assets/misc/hunting-failed.jpg",
+ "itemImages": {
+  "coins": "assets/items/Coins.png",
+  "fridge": "assets/items/Fridge.png",
+  "spoonWooden": "assets/items/spoon-lv1.png",
+  "spoonSilver": "assets/items/spoon-lv2.png",
+  "spoonGolden": "assets/items/spoon-lv3.png"
+ },
+ "uiImages": {
+  "btnBlue": "assets/UI/Btn-blue.png",
+  "logo": "assets/UI/Logo-v4.jpg"
+ }
 };
 </script>
 <script src="game.js"></script>

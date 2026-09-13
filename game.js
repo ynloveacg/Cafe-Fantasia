@@ -1552,22 +1552,27 @@ function renderPlayerCard(p, i, cookSectionHtml) {
     return `<div class="reno-pill ${cls}" ${onclick} style="${isNext && canRenovate ? "cursor:pointer;" : ""}">Lv${level}${showTip ? `<br>+$${tip} tip` : ""}</div>`;
   }).join("");
 
+  const spoonIconSrc = p.spoon === "golden" ? GAME_DATA.itemImages.spoonGolden
+    : p.spoon === "silver" ? GAME_DATA.itemImages.spoonSilver
+    : GAME_DATA.itemImages.spoonWooden;
+  const spoonLabel = `${capitalize(p.spoon)} spoon`;
+  const fridgeLabel = p.hasFridge ? "Has fridge" : "No fridge";
+
   return `
     <div class="player${isCurrent ? " active" : ""}">
       <div class="player-topsection">
+        <div class="player-badges">
+          <img class="player-badge-icon" src="${spoonIconSrc}" alt="${spoonLabel}" title="${spoonLabel}">
+          <img class="player-badge-icon" src="${GAME_DATA.itemImages.fridge}" alt="${fridgeLabel}" title="${fridgeLabel}" style="opacity:${p.hasFridge ? 1 : 0.5};">
+        </div>
         <div class="player-header-row">
           <div class="stat-row" style="margin:0;">${ing}</div>
-          <div class="player-name">${p.name}</div>
-          <div class="player-money">$${p.money}</div>
+          <div class="player-money"><img class="coin-icon" src="${GAME_DATA.itemImages.coins}" alt="$">${p.money}</div>
         </div>
         <div class="recipes-owned">${recipeCards}${emptySlots}</div>
         ${cookSectionHtml || ""}
       </div>
       <div class="restaurant-view" style="background-image:url(${restaurantImg});">
-        <div class="restaurant-badges">
-          <span class="pill status-pill">${p.spoon} spoon</span>
-          <span class="pill status-pill">${p.hasFridge ? "Fridge" : "No Fridge"}</span>
-        </div>
         <div class="renovation-overlay">
           <div style="font-size:11px;margin-bottom:4px;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,0.6);">Renovation level (tap the highlighted one to renovate)</div>
           <div class="renovation-row">${renoRow}</div>
@@ -1577,16 +1582,16 @@ function renderPlayerCard(p, i, cookSectionHtml) {
 }
 
 const MAP_ACTION_BUTTONS = [
-  { x: 12, y: 8, label: "Go hunting", sub: "success \u00d7 spoon tier", fn: "actionHunt()", gate: "canAct" },
+  { x: 12, y: 8, label: "Go hunting", sub: "success \u00d7 spoon tier", fn: "actionHunt()", gate: "canAct", icon: "meat" },
   { x: 45, y: 6, label: "Explore", sub: "Reveal a village", fn: "actionExplore()", gate: "canExplore" },
   { x: 64, y: 6, label: "Open branch", sub: "$20", fn: "actionOpenBranch()", gate: "canOpenBranch" },
-  { x: 88, y: 18, label: "Go fishing", sub: "# of dice = spoon tier", fn: "actionFish()", gate: "canAct" },
+  { x: 88, y: 18, label: "Go fishing", sub: "# of dice = spoon tier", fn: "actionFish()", gate: "canAct", icon: "fish" },
   { x: 6, y: 32, label: "Shop", sub: "", fn: "showShopModal()", gate: "canShop" },
-  { x: 6, y: 60, label: "Part-time job", sub: "+$4", fn: "actionPartTimeJob()", gate: "canAct" },
-  { x: 90, y: 45, label: "Fruit picking", sub: "2 \u00d7 spoon tier", fn: "actionPickFruit()", gate: "canAct" },
-  { x: 26, y: 78, label: "Cultivate veggie", sub: "+1 veggie", fn: "actionCultivate('vegetable')", gate: "canAct" },
+  { x: 12, y: 60, label: "Part-time job", sub: "+$4", fn: "actionPartTimeJob()", gate: "canAct", icon: "coins" },
+  { x: 90, y: 45, label: "Fruit picking", sub: "2 \u00d7 spoon tier", fn: "actionPickFruit()", gate: "canAct", icon: "fruit" },
+  { x: 26, y: 78, label: "Cultivate veggie", sub: "+1 veggie", fn: "actionCultivate('vegetable')", gate: "canAct", icon: "vegetable" },
   { x: 26, y: 90, label: "Upgrade garden", sub: "veggie storage +4", fn: "actionExpandVegetableGarden()", gate: "canExpandVeg" },
-  { x: 58, y: 78, label: "Cultivate wheat", sub: "+1 wheat", fn: "actionCultivate('wheat')", gate: "canAct" },
+  { x: 58, y: 78, label: "Cultivate wheat", sub: "+1 wheat", fn: "actionCultivate('wheat')", gate: "canAct", icon: "wheat" },
   { x: 58, y: 90, label: "Upgrade farm", sub: "wheat storage +4", fn: "actionExpandWheatFarm()", gate: "canExpandWheat" },
 ];
 
@@ -1615,7 +1620,9 @@ function renderMap(gates) {
 
   for (const btn of MAP_ACTION_BUTTONS) {
     const enabled = gates[btn.gate];
-    html += `<button class="map-btn" style="left:${btn.x}%;top:${btn.y}%;" ${enabled ? "" : "disabled"} onclick="${btn.fn}">${btn.label}${btn.sub ? `<small>${btn.sub}</small>` : ""}</button>`;
+    const iconSrc = btn.icon === "coins" ? GAME_DATA.itemImages.coins : btn.icon && GAME_DATA.ingredientImages[btn.icon];
+    const iconHtml = iconSrc ? `<img class="map-btn-icon" src="${iconSrc}" alt="">` : "";
+    html += `<button class="map-btn" style="left:${btn.x}%;top:${btn.y}%;" ${enabled ? "" : "disabled"} onclick="${btn.fn}">${iconHtml}<span class="map-btn-text">${btn.label}${btn.sub ? `<small>${btn.sub}</small>` : ""}</span></button>`;
   }
 
   return html;
@@ -1767,12 +1774,34 @@ function renderOwnedRecipe(r, p, playerIdx) {
   const onclick = canCook ? `onclick="actionCook('${r.recipeId}')"` : "";
   return `
     <div class="recipe-card">
-      <div class="recipe-thumb-wrap${canCook ? " cookable" : ""}" ${onclick} title="${tooltip}">
+      <div class="recipe-thumb-wrap${canCook ? " cookable" : ""}" ${onclick} title="${tooltip}" onmouseenter="showRecipeHoverPreview(this, '${img}')" onmouseleave="hideRecipeHoverPreview()">
         <img class="recipe-thumb" src="${img}" alt="${def.name}" style="opacity:${canCook ? 1 : 0.5};">
         <span class="cook-label">Cook</span>
       </div>
       <div class="recipe-name-label">${def.name} (${r.stars}\u2605)</div>
     </div>`;
+}
+
+function showRecipeHoverPreview(el, imgSrc) {
+  const preview = document.getElementById("recipeHoverPreview");
+  const previewImg = document.getElementById("recipeHoverPreviewImg");
+  if (!preview || !previewImg) return;
+  previewImg.src = imgSrc;
+  const rect = el.getBoundingClientRect();
+  const previewWidth = 228;
+  let left = rect.left + rect.width / 2 - previewWidth / 2;
+  left = Math.max(8, Math.min(left, window.innerWidth - previewWidth - 8));
+  preview.style.left = `${left}px`;
+  preview.style.display = "block";
+  const previewHeight = preview.offsetHeight;
+  let top = rect.top + rect.height / 2 - previewHeight / 2;
+  top = Math.max(8, Math.min(top, window.innerHeight - previewHeight - 8));
+  preview.style.top = `${top}px`;
+}
+
+function hideRecipeHoverPreview() {
+  const preview = document.getElementById("recipeHoverPreview");
+  if (preview) preview.style.display = "none";
 }
 
 // ============== SPLASH SCREEN ==============
@@ -1889,6 +1918,15 @@ function storyNext() {
   }
   storyPageIndex += 1;
   renderStoryPage();
+}
+
+function goToSplashScreen() {
+  document.getElementById("storyScreen").style.display = "none";
+  document.getElementById("gameWrap").style.display = "none";
+  document.getElementById("tutorialBar").style.display = "none";
+  document.getElementById("modalBackdrop").style.display = "none";
+  tutorial = null;
+  document.getElementById("splashScreen").style.display = "flex";
 }
 
 // ============== STEP-BY-STEP TUTORIAL ==============

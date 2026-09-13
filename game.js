@@ -1929,6 +1929,26 @@ function goToSplashScreen() {
   document.getElementById("splashScreen").style.display = "flex";
 }
 
+function requestGoToSplashScreen() {
+  const gameInProgress = document.getElementById("gameWrap").style.display !== "none" && !state.gameOver;
+  if (!gameInProgress) {
+    goToSplashScreen();
+    return;
+  }
+  document.getElementById("modalImgWrap").innerHTML = "";
+  document.getElementById("modalTitle").textContent = "Leave this game?";
+  document.getElementById("modalEffect").textContent = "";
+  document.getElementById("modalBody").innerHTML = `
+    <p>Going back to the start screen will abandon your current ${tutorial ? "tutorial" : "game"} progress. This can't be undone.</p>
+    <div class="row-btns">
+      <button class="primary" onclick="goToSplashScreen()">Leave game</button>
+      <button onclick="document.getElementById('modalBackdrop').style.display='none'">Cancel</button>
+    </div>`;
+  document.getElementById("modalBox").classList.remove("modal-wide");
+  document.getElementById("modalBox").classList.remove("modal-transparent");
+  document.getElementById("modalBackdrop").style.display = "flex";
+}
+
 // ============== STEP-BY-STEP TUTORIAL ==============
 // A self-contained "guided tour" layered on top of a normal game. It never
 // changes normal gameplay: `tutorial` is null outside tutorial mode, so the

@@ -152,7 +152,7 @@
 </head>
 <body>
 <div id="splashScreen" class="splash">
-  <img class="game-logo splash-logo" src="assets/UI/Logo-v4.jpg" alt="Café Fantasia" onclick="goToSplashScreen()">
+  <img class="game-logo splash-logo" src="assets/UI/Logo-v4.jpg" alt="Café Fantasia" onclick="requestGoToSplashScreen()">
   <div class="splash-content">
     <h1 class="splash-title">Fantasia Cafe</h1>
     <p class="splash-subtitle">Isekai cafe simulation game</p>
@@ -166,7 +166,7 @@
 
 <div id="storyScreen" class="story-screen" style="display:none">
   <div class="story-header">
-    <img class="game-logo" src="assets/UI/Logo-v4.jpg" alt="Café Fantasia" onclick="goToSplashScreen()">
+    <img class="game-logo" src="assets/UI/Logo-v4.jpg" alt="Café Fantasia" onclick="requestGoToSplashScreen()">
   </div>
   <div class="story-body">
     <div class="story-image-wrap"><img id="storyImage" src="" alt="Story illustration"></div>
@@ -190,7 +190,7 @@
   <div id="winBanner" style="display:none" class="win-banner"></div>
   <div class="status">
     <div class="status-left">
-      <img class="game-logo" src="assets/UI/Logo-v4.jpg" alt="Caf\u00e9 Fantasia" onclick="goToSplashScreen()" style="margin-right:14px;">
+      <img class="game-logo" src="assets/UI/Logo-v4.jpg" alt="Caf\u00e9 Fantasia" onclick="requestGoToSplashScreen()" style="margin-right:14px;">
       <span>Round <b id="roundNum">1</b> &middot; <b id="turnPlayer"></b>'s turn <i id="aiThinking" style="display:none;color:var(--accent)">&middot; thinking&hellip;</i></span>
     </div>
     <div>

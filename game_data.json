@@ -983,11 +983,11 @@
   "assets/restaurant/level-10.jpg"
  ],
  "ingredientImages": {
-  "fish": "assets/ingredients/fish.jpg",
-  "fruit": "assets/ingredients/fruit.jpg",
-  "meat": "assets/ingredients/meat.jpg",
-  "vegetable": "assets/ingredients/vegetable.jpg",
-  "wheat": "assets/ingredients/wheat.jpg"
+  "fish": "assets/ingredients/Icon-fish.png",
+  "fruit": "assets/ingredients/Ingredient-fruit.png",
+  "meat": "assets/ingredients/Ingredient-meat.png",
+  "vegetable": "assets/ingredients/Ingredient-veggie.png",
+  "wheat": "assets/ingredients/Ingredient-wheat.png"
  },
  "guestTypeImages": {
   "cat": "assets/guest-types/cat.jpg",

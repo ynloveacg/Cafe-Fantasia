@@ -27,7 +27,7 @@ let skipEndTurnConfirm = false; // "Do not show this again" for the End turn con
 // x/y are percentages of the map image's width/height, read directly off
 // the numbered reference map (OCR-extracted + visually cross-checked).
 const MAP_NODES = [
-  { id: "start", x: 18.6, y: 64.5 },
+  { id: "start", x: 18.6, y: 74 },
   { id: "v1", x: 9.8, y: 50.0 },
   { id: "v2", x: 24.3, y: 25.0 },
   { id: "v3", x: 31.3, y: 41.0 },
@@ -862,8 +862,8 @@ function showOtherPlayersModal() {
   document.getElementById("modalEffect").textContent = "";
   const others = state.players.slice(1);
   document.getElementById("modalBody").innerHTML =
-    others.map((p, i) => renderPlayerCard(p, i + 1)).join("") +
-    `<button onclick="document.getElementById('modalBackdrop').style.display='none'">Close</button>`;
+    `<button class="modal-close-btn" onclick="document.getElementById('modalBackdrop').style.display='none'" aria-label="Close"></button>` +
+    others.map((p, i) => renderPlayerCard(p, i + 1)).join("");
   document.getElementById("modalBackdrop").style.display = "flex";
   document.getElementById("modalBox").classList.add("modal-wide");
 }
@@ -2034,7 +2034,7 @@ const TUTORIAL_STEPS = [
     manual: true, ctaLabel: "Next",
   },
   { // 11
-    highlight: { type: "endTurn" },
+    highlight: [{ type: "endTurn" }, { type: "css", selector: "#player1Panel .player-header-row" }],
     allow: { type: "endTurn" },
     text: "With a wooden spoon, veggie and wheat will grow 1 at the end of your turn. They will grow more with a silver or a golden spoon. But if you use up all veggies or wheat within your turn, they won't grow back. It's better to save 1 wheat and 1 veggie for it to keep growing at the end of the turn. Now click the \"End turn\" button.",
     onEnter: () => state.turnIndex,
@@ -2097,6 +2097,7 @@ const TUTORIAL_INTERACTIVE_SELECTORS = [
 
 function tutorialFindElements(match) {
   if (!match) return [];
+  if (Array.isArray(match)) return match.flatMap(tutorialFindElements);
   switch (match.type) {
     case "css":
       return [...document.querySelectorAll(match.selector)];

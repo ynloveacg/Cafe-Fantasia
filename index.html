@@ -21,8 +21,8 @@
   .tutorial-next-btn:hover { filter: brightness(1.1); }
   .tutorial-highlight { position: relative; z-index: 5; border-radius: 10px; animation: tutorialPulse 1.6s ease-in-out infinite; }
   @keyframes tutorialPulse {
-    0%, 100% { box-shadow: 0 0 0 3px var(--accent), 0 0 10px 2px rgba(193,80,46,0.55); }
-    50% { box-shadow: 0 0 0 3px var(--accent), 0 0 18px 6px rgba(193,80,46,0.85); }
+    0%, 100% { box-shadow: 0 0 0 3px var(--accent), 0 0 10px 2px rgba(193,80,46,0.55), 0 0 0 9999px rgba(0,0,0,0.5); }
+    50% { box-shadow: 0 0 0 3px var(--accent), 0 0 18px 6px rgba(193,80,46,0.85), 0 0 0 9999px rgba(0,0,0,0.5); }
   }
   .tutorial-locked { opacity: 0.4; pointer-events: none; }
   body { font-family: "Iosevka Charon", -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 0 0 3rem; }
@@ -65,11 +65,11 @@
 
   .player { color: #f2ede1; border-radius: 14px; width: 100%; }
   .player-topsection { position: relative; background-image: var(--menu-bg-url); background-size: 100% 100%; border-radius: 14px; padding: 16px; }
-  .player-header-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+  .player-header-row { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; margin-top: -22px; margin-bottom: 10px; }
   .player-money { display: inline-flex; align-items: center; gap: 4px; font-weight: 700; font-size: 16px; color: #fff; white-space: nowrap; }
   .coin-icon { width: 32px; height: 32px; object-fit: contain; }
-  .player-badges { display: flex; align-items: center; gap: 8px; margin-left: auto; }
-  .player-badge-icon { width: 28px; height: 28px; object-fit: contain; cursor: default; }
+  .player-badges { display: flex; align-items: flex-end; gap: 8px; margin-left: auto; }
+  .player-badge-icon { width: 64px; height: 64px; object-fit: contain; cursor: default; }
   .cook-section { display: flex; align-items: center; justify-content: space-between; gap: 12px; background: rgba(255,255,255,0.06); border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; }
   .cook-info { font-size: 12px; line-height: 1.5; }
   .end-turn-btn { flex-shrink: 0; background: var(--accent); color: #fff; border: none; border-radius: 20px; padding: 10px 20px; font-size: 13px; font-weight: 600; cursor: pointer; }
@@ -115,7 +115,7 @@
   .actions-row button:disabled { opacity: 0.35; cursor: not-allowed; }
 
   .map-wrap { position: relative; border-radius: 14px; overflow: hidden; background-size: cover; background-position: center; min-height: 420px; }
-  .map-btn { position: absolute; transform: translate(-50%, -50%); display: flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 18px; border: none; background-image: url(assets/UI/Btn-blue.png); background-size: 100% 100%; background-repeat: no-repeat; color: #fff; cursor: pointer; font-size: 11px; font-weight: 500; text-align: left; line-height: 1.3; box-shadow: 0 2px 4px rgba(0,0,0,0.2); width: max-content; white-space: nowrap; }
+  .map-btn { position: absolute; transform: translate(-50%, -50%); display: flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 18px; border: none; background-image: url(assets/UI/Btn-blue.png); background-size: 100% 100%; background-repeat: no-repeat; background-color: transparent; color: #fff; cursor: pointer; font-size: 11px; font-weight: 500; text-align: left; line-height: 1.3; box-shadow: 0 2px 4px rgba(0,0,0,0.2); width: max-content; white-space: nowrap; }
   .map-btn:hover:not(:disabled) { filter: brightness(1.08); }
   .map-btn:disabled { opacity: 0.4; cursor: not-allowed; }
   .map-btn-icon { width: 20px; height: 20px; object-fit: contain; flex-shrink: 0; }
@@ -129,8 +129,9 @@
   .win-banner { background: #fff6d8; border: 1px solid #e0c34a; border-radius: 10px; padding: 12px 16px; margin-bottom: 1.25rem; font-weight: 600; text-align: center; }
   .actions-row .offer-btn { background: #e0c34a; }
   .modal-backdrop { position: fixed; inset: 0; background: rgba(30,20,10,0.55); display: flex; align-items: center; justify-content: center; z-index: 50; }
-  .modal { background: #fff; border-radius: 12px; padding: 20px; max-width: 420px; width: 90%; text-align: center; max-height: 85vh; overflow-y: auto; }
-  .modal.modal-wide { max-width: 1024px; }
+  .modal { position: relative; background: #fff; border-radius: 12px; padding: 20px; max-width: 420px; width: 90%; text-align: center; max-height: 85vh; overflow-y: auto; }
+  .modal.modal-wide { max-width: 660px; }
+  .modal .modal-close-btn { position: absolute; top: 10px; right: 10px; display: block; width: 28px; height: 28px; margin: 0; padding: 0; border: none; border-radius: 0; background: url(assets/UI/BTN-close.png) center/contain no-repeat; cursor: pointer; }
   .modal.modal-transparent { background: transparent; box-shadow: none; padding: 0; max-width: none; width: auto; }
   .modal .continue-btn { display: inline-block; width: auto; background-image: url(assets/UI/Btn-blue.png); background-size: 100% 100%; background-repeat: no-repeat; background-color: transparent; border: none; border-radius: 24px; color: #fff; padding: 10px 28px; font-size: 15px; font-weight: 600; cursor: pointer; margin: 12px 0 0; }
   .modal .continue-btn:hover { filter: brightness(1.08); }

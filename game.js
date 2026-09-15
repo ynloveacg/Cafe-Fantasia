@@ -820,39 +820,96 @@ function useSavedDieRoll() {
   }
 }
 
+const SHOP_ITEMS = [
+  {
+    idx: 0,
+    icon: () => GAME_DATA.itemImages.spoonSilver,
+    name: "Silver spoon",
+    price: SPOON_PRICES.silver,
+    desc: "Fruit picking: 4,<br>Fishing: 2 dices,<br>Hunting: dice result \u00d72<br>Dish proficiency +2 per cook",
+    owned: (p) => SPOON_RANK[p.spoon] >= SPOON_RANK.silver,
+    buy: () => actionBuySpoon("silver"),
+  },
+  {
+    idx: 1,
+    icon: () => GAME_DATA.itemImages.spoonGolden,
+    name: "Golden spoon",
+    price: SPOON_PRICES.golden,
+    desc: "Fruit picking: 6,<br>Fishing: 3 dices,<br>Hunting: dice result \u00d73<br>Dish proficiency +3 per cook",
+    owned: (p) => SPOON_RANK[p.spoon] >= SPOON_RANK.golden,
+    buy: () => actionBuySpoon("golden"),
+  },
+  {
+    idx: 2,
+    icon: () => GAME_DATA.itemImages.fridge,
+    name: "Magical Icebox",
+    price: FRIDGE_PRICE,
+    desc: "No ingredient rotten at the end of the turn",
+    owned: (p) => p.hasFridge,
+    buy: () => actionBuyFridge(),
+  },
+];
+
 function showShopModal() {
+  document.getElementById("modalImgWrap").innerHTML = renderShopHtml();
+  document.getElementById("modalTitle").textContent = "";
+  document.getElementById("modalEffect").textContent = "";
+  document.getElementById("modalBody").innerHTML = "";
+  document.getElementById("modalBox").classList.remove("modal-wide");
+  document.getElementById("modalBox").classList.add("modal-transparent");
+  document.getElementById("modalBackdrop").style.display = "flex";
+}
+
+function renderShopHtml() {
   const p = currentPlayer();
   const canAct = !state.gameOver && state.actionsLeft > 0 && !isBot(p);
-  const backdrop = document.getElementById("modalBackdrop");
-  document.getElementById("modalImgWrap").innerHTML = "";
-  document.getElementById("modalTitle").textContent = "Shop";
-  document.getElementById("modalEffect").textContent = "Choose one purchase (uses 1 action).";
-  const items = [];
-  if (SPOON_RANK[p.spoon] < SPOON_RANK.silver) {
-    items.push({ label: `Silver spoon ($${SPOON_PRICES.silver})`, enabled: canAct && p.money >= SPOON_PRICES.silver, onclick: "shopBuySpoon('silver')" });
-  }
-  if (SPOON_RANK[p.spoon] < SPOON_RANK.golden) {
-    items.push({ label: `Golden spoon ($${SPOON_PRICES.golden})`, enabled: canAct && p.money >= SPOON_PRICES.golden, onclick: "shopBuySpoon('golden')" });
-  }
-  if (!p.hasFridge) {
-    items.push({ label: `Fridge ($${FRIDGE_PRICE})`, enabled: canAct && p.money >= FRIDGE_PRICE, onclick: "shopBuyFridge()" });
-  }
-  document.getElementById("modalBody").innerHTML =
-    (items.length
-      ? items.map((i) => `<button ${i.enabled ? "" : "disabled"} onclick="${i.onclick}">${i.label}</button>`).join("")
-      : `<p>Nothing left to buy \u2014 you already have the golden spoon and a fridge.</p>`) +
-    `<button onclick="document.getElementById('modalBackdrop').style.display='none'">Close</button>`;
-  document.getElementById("modalBox").classList.remove("modal-wide");
-  document.getElementById("modalBox").classList.remove("modal-transparent");
-  backdrop.style.display = "flex";
+  const ROW_BANDS = [111, 222, 322]; // top offsets matching Shop-list.png's 3 parchment bands
+  const rows = SHOP_ITEMS.map((item) => {
+    const top = ROW_BANDS[item.idx];
+    const soldOut = item.owned(p);
+    const affordable = canAct && p.money >= item.price;
+    const clickable = !soldOut && affordable;
+    const onclick = clickable ? ` onclick="shopBuyItem(${item.idx})"` : "";
+    const rowCls = !soldOut && !affordable ? " shop-row-unaffordable" : "";
+    return `
+      <div class="shop-item-row${rowCls}" style="top:${top}px;" data-idx="${item.idx}"${onclick}>
+        <img class="shop-item-icon" src="${item.icon()}" alt="">
+        <div class="shop-item-info">
+          <div class="shop-item-name-row"><span>${item.name}</span><span>$${item.price}</span></div>
+          <div class="shop-item-desc">${item.desc}</div>
+        </div>
+        ${soldOut ? `<div class="shop-sold-out">SOLD OUT</div>` : ""}
+      </div>`;
+  }).join("");
+
+  return `
+    <div class="shop-dialog" id="shopDialog">
+      <button class="shop-close-btn" onclick="document.getElementById('modalBackdrop').style.display='none'" aria-label="Close"></button>
+      <div class="shop-title">SHOP</div>
+      <div class="shop-list-bg"></div>
+      ${rows}
+      <img class="shop-owner-img" src="${GAME_DATA.uiImages.shopOwner}" alt="Shop owner">
+      <div class="shop-speech-bubble" id="shopSpeechBubble">Welcome! How can I help you meow?</div>
+    </div>`;
 }
-function shopBuySpoon(tier) {
-  actionBuySpoon(tier);
-  document.getElementById("modalBackdrop").style.display = "none";
-}
-function shopBuyFridge() {
-  actionBuyFridge();
-  document.getElementById("modalBackdrop").style.display = "none";
+
+function shopBuyItem(idx) {
+  const dialog = document.getElementById("shopDialog");
+  if (!dialog || dialog.classList.contains("shop-locked")) return;
+  const item = SHOP_ITEMS[idx];
+  if (!item) return;
+  item.buy();
+  dialog.classList.add("shop-locked");
+  const row = dialog.querySelector(`.shop-item-row[data-idx="${idx}"]`);
+  if (row && !row.querySelector(".shop-sold-out")) {
+    row.insertAdjacentHTML("beforeend", `<div class="shop-sold-out">SOLD OUT</div>`);
+  }
+  const bubble = document.getElementById("shopSpeechBubble");
+  if (bubble) bubble.textContent = "Thank you for your purchase!";
+  setTimeout(() => {
+    const backdrop = document.getElementById("modalBackdrop");
+    if (backdrop.contains(dialog)) backdrop.style.display = "none";
+  }, 1000);
 }
 
 function showOtherPlayersModal() {

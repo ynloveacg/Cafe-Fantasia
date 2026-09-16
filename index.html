@@ -28,16 +28,15 @@
   body { font-family: "Iosevka Charon", -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 0 0 3rem; }
   .wrap { max-width: 1400px; margin: 0 auto; }
 
-  .splash { min-height: 100vh; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; background: linear-gradient(135deg, var(--navy), var(--navy-light)); }
-  .splash::before { content: ""; position: absolute; inset: 0; background-image: radial-gradient(circle, var(--accent) 9px, transparent 10px); background-size: 64px 64px; opacity: 0.12; }
-  .splash-content { position: relative; text-align: center; padding: 24px; }
-  .splash-title { font-size: clamp(36px, 8vw, 56px); font-weight: 700; color: #fff; margin: 0; letter-spacing: 0.5px; }
-  .splash-subtitle { font-size: 15px; color: rgba(255,255,255,0.75); margin: 10px 0 36px; letter-spacing: 0.5px; }
+  .splash { min-height: 100vh; display: flex; align-items: center; justify-content: flex-end; position: relative; overflow: hidden; background-image: url(assets/UI/Splash-BG.jpg); background-size: cover; background-position: center; }
+  .splash-illo { position: absolute; left: 0; bottom: 0; height: 100%; width: auto; max-width: 60vw; object-fit: contain; object-position: left bottom; pointer-events: none; }
+  .splash-content { position: relative; text-align: center; padding: 24px; padding-right: 7vw; }
+  .splash-logo-vertical { width: min(360px, 34vw); height: auto; display: block; margin: 0 auto; }
+  .splash-subtitle { font-size: 15px; font-weight: 600; color: var(--accent); margin: 6px 0 32px; letter-spacing: 0.5px; }
   .splash-buttons { display: flex; flex-direction: column; gap: 14px; align-items: center; }
-  .splash-btn { width: 220px; max-width: 70vw; padding: 13px 20px; border-radius: 24px; border: none; background: var(--accent); color: #fff; font-size: 15px; font-weight: 600; cursor: pointer; }
-  .splash-btn:hover { filter: brightness(1.1); }
-  .splash-btn.secondary { background: rgba(255,255,255,0.12); color: #fff; border: 1px solid rgba(255,255,255,0.35); }
-  .splash-btn.secondary:hover { background: rgba(255,255,255,0.2); }
+  .splash-btn { width: 220px; max-width: 70vw; padding: 13px 20px; border-radius: 24px; border: none; background-image: url(assets/UI/Btn-blue.png); background-size: 100% 100%; background-repeat: no-repeat; background-color: transparent; color: #fff; font-size: 15px; font-weight: 600; cursor: pointer; }
+  .splash-btn:hover:not(:disabled) { filter: brightness(1.08); }
+  .splash-btn:disabled { opacity: 0.5; cursor: not-allowed; }
   .ai-count-row { display: flex; gap: 10px; justify-content: center; margin: 6px 0 4px; }
   .ai-count-row .ai-count-btn { display: inline-block; width: 48px; height: 48px; margin: 0; padding: 0; border-radius: 50%; border: 1px solid var(--border); background: var(--bg); font-size: 16px; font-weight: 600; cursor: pointer; }
   .ai-count-row .ai-count-btn:hover { border-color: var(--accent); }
@@ -46,7 +45,6 @@
   .story-screen { min-height: 100vh; display: flex; flex-direction: column; background-image: url(assets/story/Story-BG.jpg); background-size: cover; background-position: center; }
   .story-header { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 16px 0; background: rgba(250,241,224,0.85); border-bottom: 1px solid var(--border); }
   .game-logo { height: 36px; display: block; cursor: pointer; }
-  .splash-logo { position: absolute; top: 20px; left: 24px; }
   .story-body { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 32px 20px; gap: 24px; }
   .story-image-wrap { max-width: 760px; width: 100%; }
   .story-image-wrap img { display: block; width: 100%; height: auto; }
@@ -172,14 +170,15 @@
 </head>
 <body>
 <div id="splashScreen" class="splash">
-  <img class="game-logo splash-logo" src="assets/UI/Logo-v4.jpg" alt="Café Fantasia" onclick="requestGoToSplashScreen()">
+  <img class="splash-illo" src="assets/UI/Splash-illo.png" alt="">
   <div class="splash-content">
-    <h1 class="splash-title">Fantasia Cafe</h1>
-    <p class="splash-subtitle">Isekai cafe simulation game</p>
+    <img class="splash-logo-vertical" src="assets/UI/Logo-v3-vertical.png" alt="Café Fantasia">
+    <p class="splash-subtitle">~ Cook Your Way to 3 Stars! ~</p>
     <div class="splash-buttons">
-      <button class="splash-btn secondary" onclick="showStoryScreen()">Tutorial</button>
+      <button class="splash-btn" onclick="showStoryScreen()">Tutorial</button>
       <button class="splash-btn" onclick="showSinglePlayerDialog()">Single Player</button>
-      <button class="splash-btn secondary" onclick="showBestScoreDialog()">Best score</button>
+      <button class="splash-btn" disabled title="Coming soon">Multi player</button>
+      <button class="splash-btn" onclick="showBestScoreDialog()">Best record</button>
     </div>
   </div>
 </div>

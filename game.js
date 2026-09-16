@@ -870,12 +870,12 @@ function renderShopHtml() {
     const affordable = canAct && p.money >= item.price;
     const clickable = !soldOut && affordable;
     const onclick = clickable ? ` onclick="shopBuyItem(${item.idx})"` : "";
-    const rowCls = !soldOut && !affordable ? " shop-row-unaffordable" : "";
+    const priceCls = !soldOut && !affordable ? " shop-price-unaffordable" : "";
     return `
-      <div class="shop-item-row${rowCls}" style="top:${top}px;" data-idx="${item.idx}"${onclick}>
+      <div class="shop-item-row" style="top:${top}px;" data-idx="${item.idx}"${onclick}>
         <img class="shop-item-icon" src="${item.icon()}" alt="">
         <div class="shop-item-info">
-          <div class="shop-item-name-row"><span>${item.name}</span><span>$${item.price}</span></div>
+          <div class="shop-item-name-row"><span>${item.name}</span><span class="${priceCls.trim()}">$${item.price}</span></div>
           <div class="shop-item-desc">${item.desc}</div>
         </div>
         ${soldOut ? `<div class="shop-sold-out">SOLD OUT</div>` : ""}

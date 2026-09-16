@@ -146,20 +146,22 @@
   .modal .row-btns button.primary:hover { filter: brightness(1.1); }
   .modal select { font-size: 13px; padding: 4px; margin: 4px; }
 
-  .shop-dialog { position: relative; width: 700px; max-width: 92vw; height: 500px; max-height: 85vh; background-image: url(assets/UI/Shop-BG.jpg); background-size: cover; background-position: center; border-radius: 16px; overflow: hidden; box-shadow: 0 12px 40px rgba(0,0,0,0.45); text-align: left; }
+  .shop-dialog { position: relative; width: 720px; max-width: 92vw; height: 502px; max-height: 85vh; background-image: url(assets/UI/Shop-BG.jpg); background-size: cover; background-position: center; border-radius: 16px; overflow: hidden; box-shadow: 0 12px 40px rgba(0,0,0,0.45); text-align: left; }
   .shop-title { position: absolute; top: 16px; left: 30px; font-size: 26px; font-weight: 800; letter-spacing: 1px; color: #fbe8c9; text-shadow: 0 2px 0 #6b3f22, 0 3px 8px rgba(0,0,0,0.5); }
   .modal .shop-close-btn { position: absolute; top: 12px; right: 12px; display: block; width: 32px; height: 32px; margin: 0; padding: 0; border: none; border-radius: 0; background: url(assets/UI/BTN-Close.png) center/contain no-repeat; cursor: pointer; }
   .shop-list-bg { position: absolute; left: 24px; top: 64px; width: 400px; height: 385px; background-image: url(assets/UI/Shop-list.png); background-size: 100% 100%; background-repeat: no-repeat; }
-  .shop-item-row { position: absolute; left: 66px; width: 300px; display: flex; align-items: flex-start; gap: 8px; }
-  .shop-item-row.shop-row-unaffordable { opacity: 0.55; }
-  .modal .shop-item-icon { width: 34px; height: 34px; object-fit: contain; flex-shrink: 0; margin-bottom: 0; margin-top: 1px; border-radius: 0; }
+  .shop-item-row { position: absolute; left: 66px; width: 300px; box-sizing: border-box; padding: 4px 6px; border-radius: 6px; display: flex; align-items: flex-start; gap: 8px; }
+  .shop-item-row[onclick] { cursor: pointer; }
+  .shop-item-row[onclick]:hover { background: rgba(255,255,255,0.4); }
+  .modal .shop-item-icon { width: 70px; height: 64px; object-fit: contain; flex-shrink: 0; margin-bottom: 0; margin-top: 1px; border-radius: 0; }
   .shop-item-info { flex: 1; min-width: 0; }
   .shop-item-name-row { display: flex; justify-content: space-between; gap: 8px; font-weight: 700; font-size: 13px; color: #4a2e18; }
+  .shop-item-name-row .shop-price-unaffordable { color: #C80101; }
   .shop-item-desc { font-size: 10px; line-height: 1.35; color: #6b4a30; margin-top: 2px; }
   .shop-sold-out { position: absolute; inset: 0; background: rgba(235,214,183,0.8); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 16px; letter-spacing: 1px; color: #4a2e18; }
   .shop-dialog.shop-locked .shop-item-row { pointer-events: none; }
-  .modal .shop-owner-img { position: absolute; right: 6px; bottom: 0; width: 210px; max-width: none; object-fit: contain; margin-bottom: 0; border-radius: 0; pointer-events: none; }
-  .shop-speech-bubble { position: absolute; right: 200px; top: 150px; width: 170px; background: #fff; border-radius: 14px; padding: 10px 14px; font-size: 12.5px; line-height: 1.4; color: #333; box-shadow: 0 3px 8px rgba(0,0,0,0.25); }
+  .modal .shop-owner-img { position: absolute; right: 6px; bottom: 0; width: 268px; max-width: none; object-fit: contain; margin-bottom: 0; border-radius: 0; pointer-events: none; }
+  .shop-speech-bubble { position: absolute; right: 195px; bottom: 30px; width: 170px; background: #fff; border-radius: 14px; padding: 10px 14px; font-size: 12.5px; line-height: 1.4; color: #333; box-shadow: 0 3px 8px rgba(0,0,0,0.25); }
   .shop-speech-bubble::after { content: ""; position: absolute; right: -9px; bottom: 24px; border-width: 8px 0 8px 10px; border-style: solid; border-color: transparent transparent transparent #fff; }
 
   .other-player-card { background: var(--navy); color: #f2ede1; border-radius: 10px; padding: 12px; margin-bottom: 10px; text-align: left; }

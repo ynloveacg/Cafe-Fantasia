@@ -141,6 +141,19 @@ function isBot(p) { return p.id !== HUMAN_PLAYER_ID; }
 // player id this client owns.
 let myPlayerId = HUMAN_PLAYER_ID;
 function isLocalPlayer(p) { return p.id === myPlayerId; }
+
+// ============== MULTIPLAYER (Firebase Realtime Database) ==============
+// `mp` mirrors the `tutorial` global's pattern: null outside a multiplayer
+// session, so none of this touches single-player/tutorial behavior. The
+// `typeof firebase` guard keeps this file loadable in test_harness.js's
+// Node vm sandbox, which has no Firebase SDK (loaded via CDN in the browser).
+function mpInitFirebase() {
+  if (typeof firebase === "undefined") return null;
+  firebase.initializeApp(FIREBASE_CONFIG);
+  return firebase.database();
+}
+const mpDb = mpInitFirebase();
+let mp = null; // { roomCode, isHost, playerId, ... } once in a multiplayer session
 // Picks a target among the other players — a random opponent when there's
 // more than one, or the sole opponent in a 2-player game (unchanged behavior).
 function otherPlayerOf(p) {

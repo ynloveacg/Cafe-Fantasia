@@ -1275,7 +1275,23 @@ const GAME_DATA = {
   "shopOwner": "assets/UI/Shop-owner.png"
  }
 };
+
+// Firebase Realtime Database — backs multiplayer room/lobby/turn sync.
+// This apiKey is not a secret: Firebase access control is enforced by the
+// Realtime Database security rules (see the multiplayer setup notes), not
+// by hiding this config, so it's fine for it to be public in this repo.
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyAnJT5pFvG_lQfqCU11iWqQw3hfvZupU60",
+  authDomain: "cafe-fantasia.firebaseapp.com",
+  databaseURL: "https://cafe-fantasia-default-rtdb.firebaseio.com",
+  projectId: "cafe-fantasia",
+  storageBucket: "cafe-fantasia.firebasestorage.app",
+  messagingSenderId: "115884092069",
+  appId: "1:115884092069:web:23a758bcbecf6eb637bb4c",
+};
 </script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
 <script src="game.js"></script>
 </body>
 </html>

@@ -135,6 +135,334 @@ function renovationTipBonus(level) {
   return 0;
 }
 function isBot(p) { return p.id !== HUMAN_PLAYER_ID; }
+// The seat this browser renders as "mine" (interactive panel, action
+// buttons, result popups). Defaults to the human seat, so single-player and
+// the tutorial are unaffected; multiplayer will point this at whichever
+// player id this client owns.
+let myPlayerId = HUMAN_PLAYER_ID;
+function isLocalPlayer(p) { return p.id === myPlayerId; }
+
+// ============== MULTIPLAYER (Firebase Realtime Database) ==============
+// `mp` mirrors the `tutorial` global's pattern: null outside a multiplayer
+// session, so none of this touches single-player/tutorial behavior. The
+// `typeof firebase` guard keeps this file loadable in test_harness.js's
+// Node vm sandbox, which has no Firebase SDK (loaded via CDN in the browser).
+function mpInitFirebase() {
+  if (typeof firebase === "undefined") return null;
+  firebase.initializeApp(FIREBASE_CONFIG);
+  return firebase.database();
+}
+const mpDb = mpInitFirebase();
+let mp = null; // { uid, roomCode, isHost, myName, room, roomRef } once in a multiplayer session
+let mpCountdownTimer = null;
+const MP_ROOM_TTL_MS = 30 * 60 * 1000;
+const MP_MAX_PLAYERS = 4;
+const MP_MIN_PLAYERS = 2;
+
+// Any text that came from Firebase (a player's typed name, in particular) is
+// untrusted — the open-by-design security rules let any client with a room
+// code write anything, not just what this file's own dialogs allow — so it
+// must be escaped before landing in another player's innerHTML.
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+const ROOM_CODE_WORDS = [
+  "saffron", "cinnamon", "nutmeg", "paprika", "rosemary", "thyme", "basil", "clove",
+  "vanilla", "caramel", "cocoa", "praline", "meringue", "brioche", "biscotti", "scone",
+  "waffle", "pretzel", "dumpling", "tortilla", "risotto", "chowder", "bisque", "gumbo",
+  "compote", "marmalade", "chutney", "relish", "custard", "sorbet", "gelato", "truffle",
+  "apricot", "nectarine", "persimmon", "pomegranate", "fig", "quince", "guava", "lychee",
+  "chestnut", "pistachio", "almond", "hazelnut", "walnut", "cashew", "pecan", "macadamia",
+  "lavender", "chamomile", "hibiscus", "jasmine", "bergamot", "chicory", "matcha", "oolong",
+  "espresso", "latte", "cappuccino", "mocha", "brulee", "souffle", "fondue", "ratatouille",
+  "goulash", "paella", "biryani", "falafel", "hummus", "tapenade", "pesto", "aioli",
+  "saucepan", "skillet", "ladle", "whisk", "spatula", "colander", "mortar", "griddle",
+  "kettle", "teapot", "samovar", "lantern", "candle", "ember", "hearth", "chimney",
+  "meadow", "orchard", "harvest", "vineyard", "greenhouse", "trellis", "hammock", "picnic",
+  "bramble", "thistle", "clover", "daisy", "marigold", "poppy", "willow", "birch",
+  "maple", "cedar", "juniper", "sparrow", "starling", "kingfisher", "heron", "otter",
+  "hedgehog", "badger", "raccoon", "squirrel", "firefly", "cricket", "dragonfly", "ladybug",
+  "moonstone", "opal", "topaz", "garnet", "amber", "quartz", "lantern", "compass",
+  "voyage", "harbor", "lighthouse", "cobblestone", "windmill", "carousel", "lullaby", "melody",
+];
+
+function mpRandomWord() { return ROOM_CODE_WORDS[Math.floor(Math.random() * ROOM_CODE_WORDS.length)]; }
+function mpGenerateUid() { return "u" + Math.random().toString(36).slice(2, 10); }
+function mpSanitizeRoomCode(raw) { return String(raw).trim().toLowerCase().replace(/[^a-z0-9-]/g, ""); }
+
+// ============== MULTIPLAYER: ENTRY DIALOGS ==============
+function mpShowEntryModal() {
+  document.getElementById("modalImgWrap").innerHTML = "";
+  document.getElementById("modalTitle").textContent = "Multiplayer";
+  document.getElementById("modalEffect").textContent = "";
+  document.getElementById("modalBody").innerHTML = `
+    <div class="row-btns" style="flex-direction:column;">
+      <button class="primary" onclick="mpShowCreateDialog()">Create a new room</button>
+      <button onclick="mpShowJoinDialog()">Join an existing room</button>
+    </div>`;
+  document.getElementById("modalBox").classList.remove("modal-wide");
+  document.getElementById("modalBox").classList.remove("modal-transparent");
+  document.getElementById("modalBackdrop").style.display = "flex";
+}
+
+function mpNameInputHtml() {
+  return `<input type="text" id="mpNameInput" placeholder="Your name" maxlength="18" style="width:100%;padding:8px;margin-bottom:10px;border-radius:6px;border:1px solid var(--border);font-size:14px;box-sizing:border-box;">`;
+}
+
+function mpReadNameInput() {
+  const input = document.getElementById("mpNameInput");
+  return ((input && input.value) || "").trim().slice(0, 18);
+}
+
+function mpShowInlineError(id, msg) {
+  const el = document.getElementById(id);
+  if (el) { el.textContent = msg; el.style.display = "block"; }
+}
+
+function mpShowCreateDialog() {
+  document.getElementById("modalImgWrap").innerHTML = "";
+  document.getElementById("modalTitle").textContent = "Create a room";
+  document.getElementById("modalEffect").textContent = "";
+  document.getElementById("modalBody").innerHTML = `
+    ${mpNameInputHtml()}
+    <div id="mpCreateError" style="color:var(--accent);font-size:12px;margin-bottom:8px;display:none;"></div>
+    <div class="row-btns">
+      <button class="primary" onclick="mpSubmitCreate()">Create room</button>
+      <button onclick="document.getElementById('modalBackdrop').style.display='none'">Cancel</button>
+    </div>`;
+  document.getElementById("modalBackdrop").style.display = "flex";
+}
+
+function mpShowJoinDialog() {
+  document.getElementById("modalImgWrap").innerHTML = "";
+  document.getElementById("modalTitle").textContent = "Join a room";
+  document.getElementById("modalEffect").textContent = "";
+  document.getElementById("modalBody").innerHTML = `
+    ${mpNameInputHtml()}
+    <input type="text" id="mpRoomCodeInput" placeholder="Room name" style="width:100%;padding:8px;margin-bottom:10px;border-radius:6px;border:1px solid var(--border);font-size:14px;box-sizing:border-box;">
+    <div id="mpJoinError" style="color:var(--accent);font-size:12px;margin-bottom:8px;display:none;"></div>
+    <div class="row-btns">
+      <button class="primary" onclick="mpSubmitJoin()">Join room</button>
+      <button onclick="document.getElementById('modalBackdrop').style.display='none'">Cancel</button>
+    </div>
+    <button onclick="mpSubmitJoinRandom()" style="margin-top:6px;">Join a random game room</button>`;
+  document.getElementById("modalBackdrop").style.display = "flex";
+}
+
+function mpSubmitCreate() {
+  const name = mpReadNameInput();
+  if (!name) { mpShowInlineError("mpCreateError", "Please enter your name."); return; }
+  document.getElementById("modalBackdrop").style.display = "none";
+  mpCreateRoom(name);
+}
+
+function mpSubmitJoin() {
+  const name = mpReadNameInput();
+  const code = mpSanitizeRoomCode(document.getElementById("mpRoomCodeInput").value);
+  if (!name) { mpShowInlineError("mpJoinError", "Please enter your name."); return; }
+  if (!code) { mpShowInlineError("mpJoinError", "Please enter a room name."); return; }
+  mpJoinRoom(name, code);
+}
+
+function mpSubmitJoinRandom() {
+  const name = mpReadNameInput();
+  if (!name) { mpShowInlineError("mpJoinError", "Please enter your name."); return; }
+  mpJoinRandomRoom(name);
+}
+
+function mpShowModalMessage(title, bodyHtml) {
+  document.getElementById("modalImgWrap").innerHTML = "";
+  document.getElementById("modalTitle").textContent = title;
+  document.getElementById("modalEffect").textContent = "";
+  document.getElementById("modalBody").innerHTML = bodyHtml + `<button onclick="document.getElementById('modalBackdrop').style.display='none'">Close</button>`;
+  document.getElementById("modalBox").classList.remove("modal-wide");
+  document.getElementById("modalBox").classList.remove("modal-transparent");
+  document.getElementById("modalBackdrop").style.display = "flex";
+}
+
+// ============== MULTIPLAYER: ROOM CREATE / JOIN ==============
+async function mpCreateRoom(name) {
+  if (!mpDb) { mpShowModalMessage("Multiplayer unavailable", "<p>Firebase failed to load, so multiplayer isn't available right now. Please check your connection and try again.</p>"); return; }
+  const uid = mpGenerateUid();
+  let lastError = null;
+  for (let attempt = 0; attempt < 6; attempt++) {
+    const code = attempt < 3 ? mpRandomWord() : `${mpRandomWord()}-${Math.floor(Math.random() * 90) + 10}`;
+    try {
+      const result = await mpDb.ref("rooms/" + code).transaction((current) => {
+        if (current !== null) return; // taken — abort, try another word
+        return {
+          createdAt: firebase.database.ServerValue.TIMESTAMP,
+          hostUid: uid,
+          status: "lobby",
+          players: { [uid]: { name, joinOrder: 0, connected: true, isCreator: true } },
+        };
+      });
+      if (result.committed) {
+        mp = { uid, roomCode: code, isHost: true, myName: name };
+        mpAfterJoinOrCreate();
+        return;
+      }
+    } catch (e) { lastError = e; }
+  }
+  mpShowModalMessage("Couldn't create a room", `<p>${lastError ? escapeHtml(lastError.message) : "Please try again in a moment."}</p>`);
+}
+
+async function mpJoinRoom(name, code) {
+  if (!mpDb) { mpShowModalMessage("Multiplayer unavailable", "<p>Firebase failed to load, so multiplayer isn't available right now. Please check your connection and try again.</p>"); return; }
+  const uid = mpGenerateUid();
+  try {
+    const result = await mpDb.ref("rooms/" + code).transaction((current) => {
+      if (current === null) return; // no such room
+      if (current.status !== "lobby") return; // already started / ended
+      if (Date.now() - current.createdAt > MP_ROOM_TTL_MS) return; // expired
+      const players = current.players || {};
+      if (Object.keys(players).length >= MP_MAX_PLAYERS) return; // full
+      const maxJoinOrder = Object.values(players).reduce((m, p) => Math.max(m, p.joinOrder), -1);
+      current.players = { ...players, [uid]: { name, joinOrder: maxJoinOrder + 1, connected: true, isCreator: false } };
+      return current;
+    });
+    if (!result.committed) {
+      mpShowInlineError("mpJoinError", "That room doesn't exist, is full, already started, or has expired.");
+      return;
+    }
+    mp = { uid, roomCode: code, isHost: false, myName: name };
+    mpAfterJoinOrCreate();
+  } catch (e) {
+    mpShowInlineError("mpJoinError", `Couldn't join: ${e.message}`);
+  }
+}
+
+async function mpJoinRandomRoom(name) {
+  if (!mpDb) { mpShowModalMessage("Multiplayer unavailable", "<p>Firebase failed to load, so multiplayer isn't available right now. Please check your connection and try again.</p>"); return; }
+  try {
+    const snap = await mpDb.ref("rooms").once("value");
+    const rooms = snap.val() || {};
+    const now = Date.now();
+    const candidates = Object.entries(rooms).filter(([, r]) =>
+      r.status === "lobby" && (now - r.createdAt) < MP_ROOM_TTL_MS && Object.keys(r.players || {}).length < MP_MAX_PLAYERS
+    );
+    if (!candidates.length) { mpShowInlineError("mpJoinError", "No open rooms right now — try creating one!"); return; }
+    const [code] = candidates[Math.floor(Math.random() * candidates.length)];
+    await mpJoinRoom(name, code);
+  } catch (e) {
+    mpShowInlineError("mpJoinError", `Couldn't find a room: ${e.message}`);
+  }
+}
+
+function mpAfterJoinOrCreate() {
+  document.getElementById("modalBackdrop").style.display = "none";
+  const playerRef = mpDb.ref(`rooms/${mp.roomCode}/players/${mp.uid}`);
+  playerRef.child("connected").onDisconnect().set(false);
+  mp.roomRef = mpDb.ref("rooms/" + mp.roomCode);
+  mp.roomRef.on("value", mpOnRoomSnapshot);
+  document.getElementById("splashScreen").style.display = "none";
+  document.getElementById("lobbyScreen").style.display = "flex";
+}
+
+// ============== MULTIPLAYER: LOBBY ==============
+function mpOnRoomSnapshot(snap) {
+  const data = snap.val();
+  if (!mp) return; // already left
+  if (!data) { mpLeaveRoom(true); return; }
+  mp.room = data;
+  mp.isHost = data.hostUid === mp.uid;
+  mpMaybePromoteHost();
+  mpRenderLobby();
+}
+
+// If the current host has disconnected, the lowest-joinOrder connected
+// player promotes themselves via a transaction, so a simultaneous
+// double-promotion (two clients noticing at once) resolves to one winner.
+function mpMaybePromoteHost() {
+  if (!mp || !mp.room) return;
+  const players = mp.room.players || {};
+  const hostEntry = players[mp.room.hostUid];
+  if (hostEntry && hostEntry.connected) return;
+  const connectedIds = Object.keys(players).filter((id) => players[id].connected);
+  if (!connectedIds.length) return;
+  connectedIds.sort((a, b) => players[a].joinOrder - players[b].joinOrder);
+  if (connectedIds[0] !== mp.uid) return;
+  const staleHostUid = mp.room.hostUid;
+  mp.roomRef.child("hostUid").transaction((current) => (current === staleHostUid ? mp.uid : undefined));
+}
+
+function mpRoomTimeLeftMs() { return mp && mp.room ? Math.max(0, MP_ROOM_TTL_MS - (Date.now() - mp.room.createdAt)) : 0; }
+function mpFormatTimeLeft(ms) {
+  const totalSec = Math.floor(ms / 1000);
+  return `${Math.floor(totalSec / 60)}:${(totalSec % 60).toString().padStart(2, "0")}`;
+}
+
+function mpStartCountdownTicker() {
+  if (mpCountdownTimer) clearInterval(mpCountdownTimer);
+  mpCountdownTimer = setInterval(() => {
+    if (!mp || !mp.room) { clearInterval(mpCountdownTimer); return; }
+    const el = document.getElementById("lobbyTimeLeft");
+    if (!el) { clearInterval(mpCountdownTimer); return; }
+    const left = mpRoomTimeLeftMs();
+    el.textContent = mpFormatTimeLeft(left);
+    if (left <= 0 && mp.room.status === "lobby") {
+      mp.roomRef.child("status").transaction((current) => (current === "lobby" ? "expired" : undefined));
+    }
+  }, 1000);
+}
+
+function mpRenderLobby() {
+  const room = mp.room;
+  const lobbyScreen = document.getElementById("lobbyScreen");
+
+  if (room.status === "expired" || room.status === "ended") {
+    lobbyScreen.innerHTML = `<div class="lobby-card">
+      <h2>Room ${room.status === "expired" ? "expired" : "closed"}</h2>
+      <p>${room.status === "expired" ? "This room's 30-minute wait ran out." : "This game has ended."} Head back and create or join another.</p>
+      <button class="splash-btn" onclick="mpLeaveRoom()">Back to menu</button>
+    </div>`;
+    return;
+  }
+
+  const players = Object.entries(room.players || {}).sort((a, b) => a[1].joinOrder - b[1].joinOrder);
+  const playerCount = players.length;
+  const hostEntry = room.players[room.hostUid];
+
+  const playerListHtml = players.map(([uid, p]) => `
+    <li>${escapeHtml(p.name)}${uid === room.hostUid ? " 👑" : ""}${uid === mp.uid ? " (you)" : ""}${p.connected ? "" : " — disconnected"}</li>
+  `).join("");
+
+  const startSection = mp.isHost
+    ? `<button class="splash-btn" ${playerCount >= MP_MIN_PLAYERS && playerCount <= MP_MAX_PLAYERS ? "" : "disabled"} onclick="mpStartGame()">Start game</button>
+       ${playerCount < MP_MIN_PLAYERS ? `<p class="mp-hint">Need at least ${MP_MIN_PLAYERS} players to start.</p>` : ""}`
+    : `<p class="mp-hint">Waiting for ${hostEntry ? escapeHtml(hostEntry.name) : "the host"} to start the game…</p>`;
+
+  lobbyScreen.innerHTML = `<div class="lobby-card">
+    <h2>Room: ${escapeHtml(mp.roomCode)}</h2>
+    <p class="mp-hint">Share this room name with friends so they can join.</p>
+    <ul class="mp-player-list">${playerListHtml}</ul>
+    <p class="mp-hint">Time left: <span id="lobbyTimeLeft">${mpFormatTimeLeft(mpRoomTimeLeftMs())}</span></p>
+    ${startSection}
+    <button onclick="mpLeaveRoom()">Leave room</button>
+  </div>`;
+  mpStartCountdownTicker();
+}
+
+function mpStartGame() {
+  mpShowModalMessage("Coming soon!", `<p>Full synced multiplayer gameplay is landing in the next update. The lobby is fully working today — create/join rooms, see players join live, and the 30-minute timer all run for real.</p>`);
+}
+
+function mpLeaveRoom(silent) {
+  if (mp) {
+    if (mp.roomRef) mp.roomRef.off("value", mpOnRoomSnapshot);
+    if (mp.uid && mp.roomCode && mpDb) {
+      const playerRef = mpDb.ref(`rooms/${mp.roomCode}/players/${mp.uid}`);
+      playerRef.child("connected").onDisconnect().cancel();
+      if (!silent) playerRef.remove();
+    }
+    mp = null;
+  }
+  if (mpCountdownTimer) { clearInterval(mpCountdownTimer); mpCountdownTimer = null; }
+  document.getElementById("lobbyScreen").style.display = "none";
+  goToSplashScreen();
+}
+
 // Picks a target among the other players — a random opponent when there's
 // more than one, or the sole opponent in a 2-player game (unchanged behavior).
 function otherPlayerOf(p) {
@@ -293,7 +621,7 @@ function spendAction() {
 // itself) — the player explicitly signals they're done cooking.
 function actionDone() {
   const p = currentPlayer();
-  if (!isBot(p) && !skipEndTurnConfirm) {
+  if (isLocalPlayer(p) && !skipEndTurnConfirm) {
     if (state.actionsLeft > 0) {
       showEndTurnConfirmDialog("You still have actions left to do");
       return;
@@ -593,7 +921,7 @@ function actionHunt() {
   logMsg(`${p.name} went hunting with a ${p.spoon} spoon, rolled ${face}, got ${meat} meat`);
   spendAction();
   render();
-  if (!isBot(p)) {
+  if (isLocalPlayer(p)) {
     window.__lastDiceContext = { kind: "hunt", player: p, faces: [face] };
     showActionResultModal({
       image: meat > 0 ? GAME_DATA.huntingSuccessImg : GAME_DATA.huntingFailedImg,
@@ -617,7 +945,7 @@ function actionFish() {
   logMsg(`${p.name} fished, rolled [${rolls.join(",")}], got ${fish} fish`);
   spendAction();
   render();
-  if (!isBot(p)) {
+  if (isLocalPlayer(p)) {
     window.__lastDiceContext = { kind: "fish", player: p, faces: rolls };
     showActionResultModal({
       image: fish > 0 ? GAME_DATA.fishingSuccessImg : GAME_DATA.fishingFailedImg,
@@ -638,7 +966,7 @@ function actionPickFruit() {
   logMsg(`${p.name} picked ${amt} fruit`);
   spendAction();
   render();
-  if (!isBot(p)) {
+  if (isLocalPlayer(p)) {
     showActionResultModal({
       image: GAME_DATA.fruitPickingImages[p.spoon],
       title: `You got ${amt} fruit!`,
@@ -862,7 +1190,7 @@ function showShopModal() {
 
 function renderShopHtml() {
   const p = currentPlayer();
-  const canAct = !state.gameOver && state.actionsLeft > 0 && !isBot(p);
+  const canAct = !state.gameOver && state.actionsLeft > 0 && isLocalPlayer(p);
   const ROW_BANDS = [111, 222, 322]; // top offsets matching Shop-list.png's 3 parchment bands
   const rows = SHOP_ITEMS.map((item) => {
     const top = ROW_BANDS[item.idx];
@@ -917,10 +1245,10 @@ function showOtherPlayersModal() {
   document.getElementById("modalImgWrap").innerHTML = "";
   document.getElementById("modalTitle").textContent = "Other Players";
   document.getElementById("modalEffect").textContent = "";
-  const others = state.players.slice(1);
+  const others = state.players.filter((p) => p.id !== myPlayerId);
   document.getElementById("modalBody").innerHTML =
     `<button class="modal-close-btn" onclick="document.getElementById('modalBackdrop').style.display='none'" aria-label="Close"></button>` +
-    others.map((p, i) => renderPlayerCard(p, i + 1)).join("");
+    others.map((p) => renderPlayerCard(p, state.players.indexOf(p))).join("");
   document.getElementById("modalBackdrop").style.display = "flex";
   document.getElementById("modalBox").classList.add("modal-wide");
 }
@@ -1590,7 +1918,7 @@ function renderPlayerCard(p, i, cookSectionHtml) {
   }).join("");
 
   const isCurrent = i === state.turnIndex;
-  const canRenovate = isCurrent && !isBot(p) && !state.gameOver && state.actionsLeft > 0;
+  const canRenovate = isCurrent && isLocalPlayer(p) && !state.gameOver && state.actionsLeft > 0;
   const restaurantImg = GAME_DATA.restaurantImages[Math.min(10, p.renovationLevel)];
 
   const recipeCards = p.recipes.map((r) => renderOwnedRecipe(r, p, i)).join("");
@@ -1703,7 +2031,7 @@ function render() {
   } else winBanner.style.display = "none";
 
   const p = currentPlayer();
-  const humansTurn = !isBot(p);
+  const humansTurn = isLocalPlayer(p);
   const prepPhase = state.actionsLeft > 0;
   const canAct = !state.gameOver && prepPhase && humansTurn; // the 3 prep actions
   const canCook = !state.gameOver && !prepPhase && humansTurn; // cooking phase, gated by guest capacity instead
@@ -1733,8 +2061,9 @@ function render() {
     </div>
     ${offers.length ? `<div class="actions-row" style="margin-bottom:10px;">${offers.join("")}</div>` : ""}`;
 
+  const myIndex = state.players.findIndex((pp) => pp.id === myPlayerId);
   const player1Panel = document.getElementById("player1Panel");
-  player1Panel.innerHTML = renderPlayerCard(state.players[0], 0, cookSectionHtml);
+  player1Panel.innerHTML = renderPlayerCard(state.players[myIndex], myIndex, cookSectionHtml);
 
   const menuRow = document.getElementById("menuRow");
   menuRow.innerHTML = "";
@@ -1825,7 +2154,7 @@ function renderOwnedRecipe(r, p, playerIdx) {
   const guestTypeAvailable = def.guestType === "star"
     ? p.guestCapacityRemaining.cat > 0 || p.guestCapacityRemaining.giant > 0 || p.guestCapacityRemaining.elf > 0
     : p.guestCapacityRemaining[def.guestType] > 0;
-  const canCook = isCurrent && !isBot(p) && !state.gameOver && state.actionsLeft <= 0 && canAfford(p.ingredients, def.cookCost) && guestTypeAvailable;
+  const canCook = isCurrent && isLocalPlayer(p) && !state.gameOver && state.actionsLeft <= 0 && canAfford(p.ingredients, def.cookCost) && guestTypeAvailable;
   const tooltip = `Needs: ${formatCost(def.cookCost)} \u2014 Price: $${def.dishPrice} \u2014 Guest type: ${def.guestType === "star" ? "common (any)" : def.guestType}`;
   const starImages = GAME_DATA.recipeImagesByStar[r.recipeId];
   const img = (starImages && starImages[r.stars]) || (starImages && starImages[0]);
@@ -1981,6 +2310,7 @@ function storyNext() {
 function goToSplashScreen() {
   document.getElementById("storyScreen").style.display = "none";
   document.getElementById("gameWrap").style.display = "none";
+  document.getElementById("lobbyScreen").style.display = "none";
   document.getElementById("tutorialBar").style.display = "none";
   document.getElementById("modalBackdrop").style.display = "none";
   tutorial = null;

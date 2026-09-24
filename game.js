@@ -135,6 +135,12 @@ function renovationTipBonus(level) {
   return 0;
 }
 function isBot(p) { return p.id !== HUMAN_PLAYER_ID; }
+// The seat this browser renders as "mine" (interactive panel, action
+// buttons, result popups). Defaults to the human seat, so single-player and
+// the tutorial are unaffected; multiplayer will point this at whichever
+// player id this client owns.
+let myPlayerId = HUMAN_PLAYER_ID;
+function isLocalPlayer(p) { return p.id === myPlayerId; }
 // Picks a target among the other players — a random opponent when there's
 // more than one, or the sole opponent in a 2-player game (unchanged behavior).
 function otherPlayerOf(p) {
@@ -293,7 +299,7 @@ function spendAction() {
 // itself) — the player explicitly signals they're done cooking.
 function actionDone() {
   const p = currentPlayer();
-  if (!isBot(p) && !skipEndTurnConfirm) {
+  if (isLocalPlayer(p) && !skipEndTurnConfirm) {
     if (state.actionsLeft > 0) {
       showEndTurnConfirmDialog("You still have actions left to do");
       return;
@@ -593,7 +599,7 @@ function actionHunt() {
   logMsg(`${p.name} went hunting with a ${p.spoon} spoon, rolled ${face}, got ${meat} meat`);
   spendAction();
   render();
-  if (!isBot(p)) {
+  if (isLocalPlayer(p)) {
     window.__lastDiceContext = { kind: "hunt", player: p, faces: [face] };
     showActionResultModal({
       image: meat > 0 ? GAME_DATA.huntingSuccessImg : GAME_DATA.huntingFailedImg,
@@ -617,7 +623,7 @@ function actionFish() {
   logMsg(`${p.name} fished, rolled [${rolls.join(",")}], got ${fish} fish`);
   spendAction();
   render();
-  if (!isBot(p)) {
+  if (isLocalPlayer(p)) {
     window.__lastDiceContext = { kind: "fish", player: p, faces: rolls };
     showActionResultModal({
       image: fish > 0 ? GAME_DATA.fishingSuccessImg : GAME_DATA.fishingFailedImg,
@@ -638,7 +644,7 @@ function actionPickFruit() {
   logMsg(`${p.name} picked ${amt} fruit`);
   spendAction();
   render();
-  if (!isBot(p)) {
+  if (isLocalPlayer(p)) {
     showActionResultModal({
       image: GAME_DATA.fruitPickingImages[p.spoon],
       title: `You got ${amt} fruit!`,
@@ -862,7 +868,7 @@ function showShopModal() {
 
 function renderShopHtml() {
   const p = currentPlayer();
-  const canAct = !state.gameOver && state.actionsLeft > 0 && !isBot(p);
+  const canAct = !state.gameOver && state.actionsLeft > 0 && isLocalPlayer(p);
   const ROW_BANDS = [111, 222, 322]; // top offsets matching Shop-list.png's 3 parchment bands
   const rows = SHOP_ITEMS.map((item) => {
     const top = ROW_BANDS[item.idx];
@@ -917,10 +923,10 @@ function showOtherPlayersModal() {
   document.getElementById("modalImgWrap").innerHTML = "";
   document.getElementById("modalTitle").textContent = "Other Players";
   document.getElementById("modalEffect").textContent = "";
-  const others = state.players.slice(1);
+  const others = state.players.filter((p) => p.id !== myPlayerId);
   document.getElementById("modalBody").innerHTML =
     `<button class="modal-close-btn" onclick="document.getElementById('modalBackdrop').style.display='none'" aria-label="Close"></button>` +
-    others.map((p, i) => renderPlayerCard(p, i + 1)).join("");
+    others.map((p) => renderPlayerCard(p, state.players.indexOf(p))).join("");
   document.getElementById("modalBackdrop").style.display = "flex";
   document.getElementById("modalBox").classList.add("modal-wide");
 }
@@ -1590,7 +1596,7 @@ function renderPlayerCard(p, i, cookSectionHtml) {
   }).join("");
 
   const isCurrent = i === state.turnIndex;
-  const canRenovate = isCurrent && !isBot(p) && !state.gameOver && state.actionsLeft > 0;
+  const canRenovate = isCurrent && isLocalPlayer(p) && !state.gameOver && state.actionsLeft > 0;
   const restaurantImg = GAME_DATA.restaurantImages[Math.min(10, p.renovationLevel)];
 
   const recipeCards = p.recipes.map((r) => renderOwnedRecipe(r, p, i)).join("");
@@ -1703,7 +1709,7 @@ function render() {
   } else winBanner.style.display = "none";
 
   const p = currentPlayer();
-  const humansTurn = !isBot(p);
+  const humansTurn = isLocalPlayer(p);
   const prepPhase = state.actionsLeft > 0;
   const canAct = !state.gameOver && prepPhase && humansTurn; // the 3 prep actions
   const canCook = !state.gameOver && !prepPhase && humansTurn; // cooking phase, gated by guest capacity instead
@@ -1733,8 +1739,9 @@ function render() {
     </div>
     ${offers.length ? `<div class="actions-row" style="margin-bottom:10px;">${offers.join("")}</div>` : ""}`;
 
+  const myIndex = state.players.findIndex((pp) => pp.id === myPlayerId);
   const player1Panel = document.getElementById("player1Panel");
-  player1Panel.innerHTML = renderPlayerCard(state.players[0], 0, cookSectionHtml);
+  player1Panel.innerHTML = renderPlayerCard(state.players[myIndex], myIndex, cookSectionHtml);
 
   const menuRow = document.getElementById("menuRow");
   menuRow.innerHTML = "";
@@ -1825,7 +1832,7 @@ function renderOwnedRecipe(r, p, playerIdx) {
   const guestTypeAvailable = def.guestType === "star"
     ? p.guestCapacityRemaining.cat > 0 || p.guestCapacityRemaining.giant > 0 || p.guestCapacityRemaining.elf > 0
     : p.guestCapacityRemaining[def.guestType] > 0;
-  const canCook = isCurrent && !isBot(p) && !state.gameOver && state.actionsLeft <= 0 && canAfford(p.ingredients, def.cookCost) && guestTypeAvailable;
+  const canCook = isCurrent && isLocalPlayer(p) && !state.gameOver && state.actionsLeft <= 0 && canAfford(p.ingredients, def.cookCost) && guestTypeAvailable;
   const tooltip = `Needs: ${formatCost(def.cookCost)} \u2014 Price: $${def.dishPrice} \u2014 Guest type: ${def.guestType === "star" ? "common (any)" : def.guestType}`;
   const starImages = GAME_DATA.recipeImagesByStar[r.recipeId];
   const img = (starImages && starImages[r.stars]) || (starImages && starImages[0]);

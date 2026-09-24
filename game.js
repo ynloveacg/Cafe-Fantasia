@@ -310,22 +310,17 @@ async function mpCreateRoom(name) {
 
 async function mpJoinRoom(name, code) {
   if (!mpDb) { mpShowModalMessage("Multiplayer unavailable", "<p>Firebase failed to load, so multiplayer isn't available right now. Please check your connection and try again.</p>"); return; }
-  const uid = mpGenerateUid();
   try {
-    const result = await mpDb.ref("rooms/" + code).transaction((current) => {
-      if (current === null) return; // no such room
-      if (current.status !== "lobby") return; // already started / ended
-      if (Date.now() - current.createdAt > MP_ROOM_TTL_MS) return; // expired
-      const players = current.players || {};
-      if (Object.keys(players).length >= MP_MAX_PLAYERS) return; // full
-      const maxJoinOrder = Object.values(players).reduce((m, p) => Math.max(m, p.joinOrder), -1);
-      current.players = { ...players, [uid]: { name, joinOrder: maxJoinOrder + 1, connected: true, isCreator: false } };
-      return current;
-    });
-    if (!result.committed) {
-      mpShowInlineError("mpJoinError", "That room doesn't exist, is full, already started, or has expired.");
-      return;
-    }
+    const snap = await mpDb.ref("rooms/" + code).once("value");
+    const current = snap.val();
+    if (current === null) { mpShowInlineError("mpJoinError", "That room doesn't exist. Double-check the room name and try again."); return; }
+    if (current.status !== "lobby") { mpShowInlineError("mpJoinError", "That game has already started or ended."); return; }
+    if (Date.now() - current.createdAt > MP_ROOM_TTL_MS) { mpShowInlineError("mpJoinError", "That room's 30-minute wait has run out."); return; }
+    const players = current.players || {};
+    if (Object.keys(players).length >= MP_MAX_PLAYERS) { mpShowInlineError("mpJoinError", "That room is already full."); return; }
+    const uid = mpGenerateUid();
+    const maxJoinOrder = Object.values(players).reduce((m, p) => Math.max(m, p.joinOrder), -1);
+    await mpDb.ref(`rooms/${code}/players/${uid}`).set({ name, joinOrder: maxJoinOrder + 1, connected: true, isCreator: false });
     mp = { uid, roomCode: code, isHost: false, myName: name };
     mpAfterJoinOrCreate();
   } catch (e) {
@@ -454,7 +449,28 @@ function mpLeaveRoom(silent) {
     if (mp.uid && mp.roomCode && mpDb) {
       const playerRef = mpDb.ref(`rooms/${mp.roomCode}/players/${mp.uid}`);
       playerRef.child("connected").onDisconnect().cancel();
-      if (!silent) playerRef.remove();
+      if (!silent) {
+        const myUid = mp.uid;
+        // Remove myself from the room's players in one transaction so a
+        // fully-empty room is deleted (returning null deletes the node)
+        // instead of lingering as an orphaned shell with no players. If
+        // I was the host and other players remain, hand hostUid to the
+        // next-lowest-joinOrder player immediately, rather than waiting
+        // for the disconnect-based mpMaybePromoteHost() to notice.
+        mpDb.ref("rooms/" + mp.roomCode).transaction((current) => {
+          if (current === null) return current;
+          const players = { ...(current.players || {}) };
+          delete players[myUid];
+          const remainingIds = Object.keys(players);
+          if (remainingIds.length === 0) return null;
+          current.players = players;
+          if (current.hostUid === myUid) {
+            remainingIds.sort((a, b) => players[a].joinOrder - players[b].joinOrder);
+            current.hostUid = remainingIds[0];
+          }
+          return current;
+        });
+      }
     }
     mp = null;
   }

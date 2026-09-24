@@ -51,6 +51,15 @@
   .story-text { max-width: 760px; width: 100%; margin: 0; font-size: 16px; line-height: 1.7; color: var(--accent); text-align: left; }
   .story-nav { max-width: 760px; width: 100%; display: flex; justify-content: space-between; gap: 12px; }
   .story-btn { padding: 12px 30px; border-radius: 22px; border: none; background: var(--btn-blue); color: #fff; font-size: 15px; font-weight: 600; cursor: pointer; }
+
+  .lobby-screen { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: var(--bg); padding: 24px; }
+  .lobby-card { max-width: 420px; width: 100%; background: var(--panel); border: 1px solid var(--border); border-radius: 16px; padding: 28px 26px; text-align: center; box-shadow: 0 8px 24px rgba(0,0,0,0.1); }
+  .lobby-card h2 { margin: 0 0 6px; font-size: 22px; color: var(--text); }
+  .lobby-card .mp-hint { font-size: 13px; color: var(--muted); margin: 10px 0; }
+  .mp-player-list { list-style: none; margin: 16px 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  .mp-player-list li { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; font-size: 14px; text-align: left; }
+  .lobby-card .splash-btn { width: 100%; margin-bottom: 10px; }
+  .lobby-card > button:not(.splash-btn) { background: none; border: none; color: var(--muted); font-size: 13px; cursor: pointer; text-decoration: underline; padding: 4px; }
   .story-btn:hover { filter: brightness(1.08); }
   .status { display: flex; justify-content: space-between; align-items: center; background: var(--bg); border-bottom: 2px solid var(--border); padding: 10px 4px 14px; margin-bottom: 1.25rem; font-size: 14px; }
   .status b { color: var(--accent); }
@@ -177,7 +186,7 @@
     <div class="splash-buttons">
       <button class="splash-btn" onclick="showStoryScreen()">Tutorial</button>
       <button class="splash-btn" onclick="showSinglePlayerDialog()">Single Player</button>
-      <button class="splash-btn" disabled title="Coming soon">Multi player</button>
+      <button class="splash-btn" onclick="mpShowEntryModal()">Multi player</button>
       <button class="splash-btn" onclick="showBestScoreDialog()">Best record</button>
     </div>
   </div>
@@ -196,6 +205,8 @@
     </div>
   </div>
 </div>
+
+<div id="lobbyScreen" class="lobby-screen" style="display:none"></div>
 
 <div id="tutorialBar" class="tutorial-bar">
   <div class="tutorial-bar-inner">

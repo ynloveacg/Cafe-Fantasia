@@ -641,6 +641,7 @@ function buildInitialState(playerSpecs) {
     villages, branchOwners, villageDeck,
     anyRecipeDevelopedThisRound: false,
     pendingReveal: null, // { playerId, cardId, ctx } — multiplayer's networked stand-in for showCardModal's window.__pendingCardResolve, see the MULTIPLAYER GAMEPLAY SYNC section
+    pendingResult: null, // { playerId, id, kind, image, title, subtitle, diceFaces, showSavedDieButton } — same idea for showActionResultModal (hunt/fish/fruit-picking result popups)
   };
   refreshGuestCapacity(players[0]);
   localGameOverDialogShown = false;
@@ -1012,16 +1013,14 @@ function actionHunt() {
   logMsg(`${p.name} went hunting with a ${p.spoon} spoon, rolled ${face}, got ${meat} meat`);
   spendAction();
   render();
-  if (isLocalPlayer(p)) {
-    window.__lastDiceContext = { kind: "hunt", player: p, faces: [face] };
-    showActionResultModal({
-      image: meat > 0 ? GAME_DATA.huntingSuccessImg : GAME_DATA.huntingFailedImg,
-      title: `You got ${meat} meat!`,
-      subtitle: `${capitalize(p.spoon)} spoon effect: 1 die`,
-      diceFaces: [face],
-      showSavedDieButton: p.savedDieRoll !== null,
-    });
-  }
+  showActionResultModal(p, {
+    kind: "hunt",
+    image: meat > 0 ? GAME_DATA.huntingSuccessImg : GAME_DATA.huntingFailedImg,
+    title: `You got ${meat} meat!`,
+    subtitle: `${capitalize(p.spoon)} spoon effect: 1 die`,
+    diceFaces: [face],
+    showSavedDieButton: p.savedDieRoll !== null,
+  });
 }
 
 function actionFish() {
@@ -1036,16 +1035,14 @@ function actionFish() {
   logMsg(`${p.name} fished, rolled [${rolls.join(",")}], got ${fish} fish`);
   spendAction();
   render();
-  if (isLocalPlayer(p)) {
-    window.__lastDiceContext = { kind: "fish", player: p, faces: rolls };
-    showActionResultModal({
-      image: fish > 0 ? GAME_DATA.fishingSuccessImg : GAME_DATA.fishingFailedImg,
-      title: `You got ${fish} fish!`,
-      subtitle: `${capitalize(p.spoon)} spoon effect: ${rank} dice`,
-      diceFaces: rolls,
-      showSavedDieButton: p.savedDieRoll !== null,
-    });
-  }
+  showActionResultModal(p, {
+    kind: "fish",
+    image: fish > 0 ? GAME_DATA.fishingSuccessImg : GAME_DATA.fishingFailedImg,
+    title: `You got ${fish} fish!`,
+    subtitle: `${capitalize(p.spoon)} spoon effect: ${rank} dice`,
+    diceFaces: rolls,
+    showSavedDieButton: p.savedDieRoll !== null,
+  });
 }
 
 function actionPickFruit() {
@@ -1057,14 +1054,13 @@ function actionPickFruit() {
   logMsg(`${p.name} picked ${amt} fruit`);
   spendAction();
   render();
-  if (isLocalPlayer(p)) {
-    showActionResultModal({
-      image: GAME_DATA.fruitPickingImages[p.spoon],
-      title: `You got ${amt} fruit!`,
-      subtitle: `${capitalize(p.spoon)} spoon effect: ${amt} fruit (no dice \u2014 fruit picking is a fixed amount)`,
-      diceFaces: [],
-    });
-  }
+  showActionResultModal(p, {
+    kind: "fruit",
+    image: GAME_DATA.fruitPickingImages[p.spoon],
+    title: `You got ${amt} fruit!`,
+    subtitle: `${capitalize(p.spoon)} spoon effect: ${amt} fruit (no dice \u2014 fruit picking is a fixed amount)`,
+    diceFaces: [],
+  });
 }
 
 function actionCultivate(type) {
@@ -1174,19 +1170,29 @@ function capitalize(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
 
 // Shown for Go hunting / Go fishing / Fruit picking — a quick result popup
 // with the illustration, dice rolled (if any), title, subtitle, and a
-// "Got it" button. Human players only — the AI doesn't need to see this.
-function showActionResultModal({ image, title, subtitle, diceFaces, showSavedDieButton }) {
+// "Got it" button. Always persisted into networked `state` (not just this
+// browser's DOM/window globals) so that in multiplayer, whichever client
+// actually owns `player` can show this same popup locally via render()'s
+// mpMaybeShowMyResult — see MULTIPLAYER GAMEPLAY SYNC. `opts.id` lets a
+// refresh (useSavedDieRoll) reuse the same popup instance; a fresh one is
+// generated otherwise so mpMaybeShowMyResult knows this is new and shows it.
+function showActionResultModal(player, opts) {
+  const id = opts.id || mpGenerateUid();
+  state.pendingResult = { playerId: player.id, id, ...opts };
+  if (mp && mp.inGame && !isLocalPlayer(player)) return; // not this browser's result to show
+  window.__mpLastShownResultId = id;
+  window.__lastDiceContext = { kind: opts.kind, player, faces: opts.diceFaces ? [...opts.diceFaces] : [] };
   const backdrop = document.getElementById("modalBackdrop");
-  document.getElementById("modalImgWrap").innerHTML = image ? `<img src="${image}" style="width:100%;max-width:280px;border-radius:10px;">` : "";
-  document.getElementById("modalTitle").textContent = title;
+  document.getElementById("modalImgWrap").innerHTML = opts.image ? `<img src="${opts.image}" style="width:100%;max-width:280px;border-radius:10px;">` : "";
+  document.getElementById("modalTitle").textContent = opts.title;
   document.getElementById("modalEffect").textContent = "";
-  let body = `<p style="color:var(--accent);font-weight:600;font-size:13px;margin:-6px 0 14px;">${subtitle}</p>`;
-  if (diceFaces && diceFaces.length > 0) {
+  let body = `<p style="color:var(--accent);font-weight:600;font-size:13px;margin:-6px 0 14px;">${opts.subtitle}</p>`;
+  if (opts.diceFaces && opts.diceFaces.length > 0) {
     body += `<div style="display:flex;gap:10px;justify-content:center;margin-bottom:14px;">` +
-      diceFaces.map((f) => `<img src="${GAME_DATA.diceImages[f]}" style="width:44px;height:44px;background:#fff;border-radius:8px;border:1px solid var(--border);">`).join("") +
+      opts.diceFaces.map((f) => `<img src="${GAME_DATA.diceImages[f]}" style="width:44px;height:44px;background:#fff;border-radius:8px;border:1px solid var(--border);">`).join("") +
       `</div>`;
   }
-  if (showSavedDieButton) {
+  if (opts.showSavedDieButton) {
     body += `<button onclick="useSavedDieRoll()" style="background:#e0c34a;border-color:#c9ab3a;">Use saved dice result instead</button>`;
   }
   body += `<button onclick="document.getElementById('modalBackdrop').style.display='none'">Got it</button>`;
@@ -1213,7 +1219,8 @@ function useSavedDieRoll() {
     ctx.faces = [savedFace];
     logMsg(`${p.name} used their saved die roll (${savedFace}) for hunting \u2014 now ${newMeat} meat`);
     render();
-    showActionResultModal({
+    showActionResultModal(p, {
+      kind: "hunt",
       image: newMeat > 0 ? GAME_DATA.huntingSuccessImg : GAME_DATA.huntingFailedImg,
       title: `You got ${newMeat} meat!`,
       subtitle: `${capitalize(p.spoon)} spoon effect: 1 die (saved roll used)`,
@@ -1229,7 +1236,8 @@ function useSavedDieRoll() {
     p.ingredients.fish += newSum - oldSum;
     logMsg(`${p.name} used their saved die roll (${savedFace}) for fishing \u2014 now ${newSum} fish`);
     render();
-    showActionResultModal({
+    showActionResultModal(p, {
+      kind: "fish",
       image: newSum > 0 ? GAME_DATA.fishingSuccessImg : GAME_DATA.fishingFailedImg,
       title: `You got ${newSum} fish!`,
       subtitle: `${capitalize(p.spoon)} spoon effect: ${ctx.faces.length} dice (saved roll used)`,
@@ -1699,6 +1707,17 @@ shopBuyItem = function (idx) {
   return MP_ORIGINAL_SHOP_BUY_ITEM(idx);
 };
 
+// Like closeModalAndResolve/resolveChoice, useSavedDieRoll reads a DOM-local
+// window global (window.__lastDiceContext) that only means something on the
+// single browser currently showing that hunt/fish result — never the host's
+// browser when it's a *different* client's result. mpApplyIntent below
+// reconstructs it from state.pendingResult before calling the original.
+const MP_ORIGINAL_USE_SAVED_DIE_ROLL = useSavedDieRoll;
+useSavedDieRoll = function () {
+  if (mpShouldSendIntent()) { mpSendIntent("useSavedDieRoll", []); return; }
+  return MP_ORIGINAL_USE_SAVED_DIE_ROLL();
+};
+
 // Applies one queued intent from a non-host player. Runs only on whichever
 // client currently holds host status (see mpAttachGameplaySync) — including
 // after a mid-game host migration, since that just changes which client's
@@ -1721,6 +1740,14 @@ function mpApplyIntent(action) {
   } else if (action.name === "shopBuyItem") {
     const item = SHOP_ITEMS[action.args[0]];
     if (item) { item.buy(); render(); }
+  } else if (action.name === "useSavedDieRoll") {
+    const player = state.players.find((pl) => pl.id === action.playerId);
+    const res = state.pendingResult;
+    if (player && res && res.playerId === action.playerId && player.savedDieRoll !== null) {
+      window.__lastDiceContext = { kind: res.kind, player, faces: res.diceFaces ? [...res.diceFaces] : [] };
+      MP_ORIGINAL_USE_SAVED_DIE_ROLL();
+      render();
+    }
   } else {
     const fn = MP_ORIGINAL_FNS[action.name];
     if (fn) { fn(...(action.args || [])); render(); }
@@ -1735,8 +1762,17 @@ function mpAttachGameplaySync() {
   if (mp.pendingActionsRef) return; // already attached
   mp.pendingActionsRef = mp.roomRef.child("pendingActions");
   mp.pendingActionsRef.on("child_added", (snap) => {
-    if (mp.isHost) mpApplyIntent(snap.val());
-    snap.ref.remove();
+    // Every client watching this path gets this event, including the one
+    // that pushed it (Firebase fires child_added for the pusher's own
+    // write too, often before the round trip to any other client
+    // completes). Removing unconditionally let a non-host actor's own
+    // listener win the race and delete its own action before the host's
+    // listener ever saw it — silently dropping the action. Only the host
+    // may remove what it actually applied.
+    if (mp.isHost) {
+      mpApplyIntent(snap.val());
+      snap.ref.remove();
+    }
   });
 }
 
@@ -1776,6 +1812,22 @@ function mpMaybeShowMyChoice() {
     document.getElementById("modalBackdrop").style.display = "none";
     window.__activeChoicePlayer = null;
   }
+}
+
+// Unlike reveals/choices, a hunt/fish/fruit-picking result popup doesn't
+// need the host to resolve anything before it can be dismissed — "Got it"
+// doesn't mutate state — so there's no "waiting, then close" half. Instead
+// each result carries a fresh id, and window.__mpLastShownResultId (set the
+// moment this browser actually displays one, in showActionResultModal)
+// tracks whether THIS specific result has already been shown/dismissed here,
+// so an unrelated later state sync doesn't pop the same one back open.
+function mpMaybeShowMyResult() {
+  const res = state.pendingResult;
+  if (!res || res.playerId !== myPlayerId) return;
+  if (res.id === window.__mpLastShownResultId) return;
+  if (document.getElementById("modalBackdrop").style.display === "flex") return;
+  const player = state.players.find((p) => p.id === myPlayerId);
+  if (player) showActionResultModal(player, res);
 }
 
 // Sorted the same way on every client (by joinOrder), so each one can
@@ -2424,6 +2476,7 @@ function render() {
     }
     mpMaybeShowMyReveal();
     mpMaybeShowMyChoice();
+    mpMaybeShowMyResult();
   }
 }
 

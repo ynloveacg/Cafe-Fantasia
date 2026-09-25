@@ -107,6 +107,12 @@ function gainIngredient(p, type, amount) {
 
 let state = null;
 let botRunning = false;
+// Whether THIS browser has already shown its own "Game Over" dialog for the
+// current game. Kept outside `state` (unlike the single-player-only flag it
+// replaces) because `state` is wholesale-replaced by whatever a multiplayer
+// client receives from Firebase — a shared field would arrive already
+// "shown" from the host's own render and never trigger on other clients.
+let localGameOverDialogShown = false;
 
 function recipeDef(id) { return GAME_DATA.recipes.find((r) => r.id === id); }
 function cardDef(id) {
@@ -134,7 +140,11 @@ function renovationTipBonus(level) {
   if (level >= 1) return 1;
   return 0;
 }
-function isBot(p) { return p.id !== HUMAN_PLAYER_ID; }
+// In a multiplayer game every seat is a real connected player — there are
+// no bots — so this always reads false once `mp.inGame` is set, which also
+// disables the AI turn-runner and the single-player "stray click" guards
+// that assumed only p1 could be a real human.
+function isBot(p) { return !(mp && mp.inGame) && p.id !== HUMAN_PLAYER_ID; }
 // The seat this browser renders as "mine" (interactive panel, action
 // buttons, result popups). Defaults to the human seat, so single-player and
 // the tutorial are unaffected; multiplayer will point this at whichever
@@ -363,6 +373,30 @@ function mpOnRoomSnapshot(snap) {
   mp.room = data;
   mp.isHost = data.hostUid === mp.uid;
   mpMaybePromoteHost();
+
+  if (!mp.inGame && data.status === "playing" && data.gameState) {
+    // The host just started the game (mpStartGame) — join it. myPlayerId is
+    // computed the same way independently by every client (sorted by
+    // joinOrder), so it doesn't need to be transmitted.
+    myPlayerId = mpComputeMyPlayerId();
+    mp.inGame = true;
+    if (mpCountdownTimer) { clearInterval(mpCountdownTimer); mpCountdownTimer = null; }
+    document.getElementById("lobbyScreen").style.display = "none";
+    document.getElementById("gameWrap").style.display = "";
+    mpAttachGameplaySync();
+    state = data.gameState;
+    render();
+    return;
+  }
+
+  if (mp.inGame) {
+    // Only a non-host applies incoming state here — the host's own state is
+    // already authoritative locally, and re-adopting its own echoed write
+    // would just be redundant (see mpPushGameState).
+    if (!mp.isHost && data.gameState) { state = data.gameState; render(); }
+    return;
+  }
+
   mpRenderLobby();
 }
 
@@ -440,7 +474,18 @@ function mpRenderLobby() {
 }
 
 function mpStartGame() {
-  mpShowModalMessage("Coming soon!", `<p>Full synced multiplayer gameplay is landing in the next update. The lobby is fully working today — create/join rooms, see players join live, and the 30-minute timer all run for real.</p>`);
+  if (!mp || !mp.isHost || !mp.room) return;
+  const entries = mpRoomPlayersSortedByJoinOrder();
+  if (entries.length < MP_MIN_PLAYERS || entries.length > MP_MAX_PLAYERS) return;
+  const specs = entries.map(([, pdata], idx) => ({ id: `p${idx + 1}`, name: pdata.name }));
+  myPlayerId = mpComputeMyPlayerId();
+  mp.inGame = true;
+  if (mpCountdownTimer) { clearInterval(mpCountdownTimer); mpCountdownTimer = null; }
+  document.getElementById("lobbyScreen").style.display = "none";
+  document.getElementById("gameWrap").style.display = "";
+  mpAttachGameplaySync();
+  initMultiplayerGame(specs); // builds `state` and renders, which (mp.isHost && mp.inGame) pushes the initial gameState to Firebase
+  mp.roomRef.child("status").set("playing");
 }
 
 function mpLeaveRoom(silent) {
@@ -526,11 +571,11 @@ function endGame(reason) {
 // this game has no other save/load or backend.
 function updateBestScore() {
   try {
-    const entry = state.finalScores.find((s) => s.player.id === HUMAN_PLAYER_ID);
+    const entry = state.finalScores.find((s) => s.player.id === myPlayerId);
     if (!entry) return;
     const existing = JSON.parse(localStorage.getItem("cafeFantasiaBestScore") || "null");
     if (existing && existing.total >= entry.score.total) return;
-    const outcome = state.winnerId === HUMAN_PLAYER_ID ? "win" : state.winnerId === null ? "tie" : "loss";
+    const outcome = state.winnerId === myPlayerId ? "win" : state.winnerId === null ? "tie" : "loss";
     localStorage.setItem("cafeFantasiaBestScore", JSON.stringify({
       total: entry.score.total,
       dishPoints: entry.score.dishPoints,
@@ -550,15 +595,15 @@ function updateBestScore() {
   }
 }
 
-function initGame(aiCount = 1) {
+// Shared by initGame (single player, real p1 + bots) and initMultiplayerGame
+// (every seat a real connected player, no bots) — `playerSpecs` is just the
+// ordered list of {id, name} to seat, so both callers get byte-identical
+// setup/RNG-order otherwise.
+function buildInitialState(playerSpecs) {
   document.documentElement.style.setProperty("--menu-bg-url", `url(${GAME_DATA.menuBg2})`);
   document.documentElement.style.setProperty("--log-bg-url", `url(${GAME_DATA.logBg})`);
   const recipePile = shuffle(GAME_DATA.recipes.map((r) => r.id));
-  const players = [createPlayer(HUMAN_PLAYER_ID, "Player 1")];
-  for (let i = 0; i < aiCount; i++) {
-    const id = `p${i + 2}`;
-    players.push(createPlayer(id, `Player ${i + 2} (AI)`));
-  }
+  const players = playerSpecs.map((spec) => createPlayer(spec.id, spec.name));
   for (const p of players) {
     const rid = recipePile.shift();
     p.recipes.push({ recipeId: rid, level: 0, stars: 0 });
@@ -579,14 +624,33 @@ function initGame(aiCount = 1) {
 
   state = {
     round: 1, turnIndex: 0, actionsLeft: 3, winnerId: null, gameOver: false, winReason: null,
-    gameEndDialogShown: false, finalScores: null,
+    finalScores: null,
     players, recipePile, recipeDiscard: [], menu, guestPile, eventPile, log: [],
     coldWaveUntilRound: 0, skipNextIngredientDecay: false,
     villages, branchOwners, villageDeck,
     anyRecipeDevelopedThisRound: false,
+    pendingReveal: null, // { playerId, cardId, ctx } — multiplayer's networked stand-in for showCardModal's window.__pendingCardResolve, see the MULTIPLAYER GAMEPLAY SYNC section
   };
   refreshGuestCapacity(players[0]);
+  localGameOverDialogShown = false;
+}
+
+function initGame(aiCount = 1) {
+  myPlayerId = HUMAN_PLAYER_ID;
+  const specs = [{ id: HUMAN_PLAYER_ID, name: "Player 1" }];
+  for (let i = 0; i < aiCount; i++) specs.push({ id: `p${i + 2}`, name: `Player ${i + 2} (AI)` });
+  buildInitialState(specs);
   logMsg(`Game started. Everyone begins with $20, 2 vegetable, 2 wheat, wooden spoon, and a free branch at Start. ${aiCount} AI ${aiCount === 1 ? "opponent" : "opponents"}.`);
+  render();
+}
+
+// Multiplayer analog of initGame — `playerSpecs` is the room's real joined
+// players (ordered by joinOrder), no bots. myPlayerId must already be set by
+// the caller before this runs (mpStartGame / mpOnRoomSnapshot compute it from
+// the room's player list).
+function initMultiplayerGame(playerSpecs) {
+  buildInitialState(playerSpecs);
+  logMsg(`Multiplayer game started with ${playerSpecs.map((s) => s.name).join(", ")}.`);
   render();
 }
 
@@ -1306,6 +1370,13 @@ function actionExpandVegetableGarden() {
 
 // ============== CARD MODAL ==============
 function showCardModal(card, ctx, player) {
+  // Persisted into networked `state` (not just this browser's DOM/window
+  // globals) so that in multiplayer, whichever client actually owns `player`
+  // can show this same reveal locally via render()'s mpMaybeShowMyReveal —
+  // see MULTIPLAYER GAMEPLAY SYNC. `ctx.rng` (a function reference) is
+  // dropped since it can't survive a trip through Firebase; nothing reads it.
+  state.pendingReveal = { playerId: player.id, cardId: card.id, ctx: { recipeId: ctx && ctx.recipeId, guestTypeArt: ctx && ctx.guestTypeArt } };
+  if (mp && mp.inGame && !isLocalPlayer(player)) return; // not this browser's reveal to show
   const backdrop = document.getElementById("modalBackdrop");
   const imgWrap = document.getElementById("modalImgWrap");
   let img;
@@ -1336,6 +1407,7 @@ function closeModalAndResolve() {
   document.getElementById("modalBackdrop").style.display = "none";
   const { card, ctx, player } = window.__pendingCardResolve;
   window.__pendingCardResolve = null;
+  state.pendingReveal = null;
   resolveCardEffect(card, ctx, player);
   render();
   if (player.pendingChoice && !isBot(player)) {
@@ -1344,6 +1416,7 @@ function closeModalAndResolve() {
 }
 
 function showChoiceModal(p) {
+  if (mp && mp.inGame && !isLocalPlayer(p)) return; // not this browser's choice to show — the owning client shows it via render()'s mpMaybeShowMyChoice
   const choice = p.pendingChoice;
   window.__activeChoicePlayer = p;
   const backdrop = document.getElementById("modalBackdrop");
@@ -1521,6 +1594,189 @@ function resolveChoice(params, playerOverride) {
   window.__activeChoicePlayer = null;
   document.getElementById("modalBackdrop").style.display = "none";
   render();
+}
+
+// ============== MULTIPLAYER: GAMEPLAY SYNC (sim-host pattern) ==============
+// Exactly one connected client (mp.isHost) actually calls the action
+// functions above and pushes the resulting `state` to Firebase; every other
+// client is a thin renderer that displays whatever `state` it receives and,
+// on its own turn, sends an intent (a `pendingActions` queue entry) instead
+// of calling the action function directly. The host applies each intent by
+// calling the very same (unwrapped) function, so bots/single-player and the
+// host's own turn are completely unaffected — see the M4 plan for the full
+// design rationale.
+//
+// Placed after every action function it wraps is defined; this section's own
+// placement doesn't actually matter (function declarations hoist), but
+// grouping the sync layer here — rather than scattering ~15 individual
+// reassignments throughout the action functions above — keeps it auditable
+// as one unit.
+const MP_WRAPPED_ACTIONS = [
+  "actionDevelop", "actionCook", "actionPartTimeJob", "actionHunt", "actionFish",
+  "actionPickFruit", "actionCultivate", "actionExplore", "confirmOpenBranch",
+  "actionBuySpoon", "actionBuyFridge", "actionRenovate",
+  "actionExpandWheatFarm", "actionExpandVegetableGarden", "endTurn",
+];
+const MP_ORIGINAL_FNS = {};
+
+// True only when it's actually this client's own turn in an active
+// multiplayer game — the same condition render() already uses to decide
+// whether to enable the action buttons in the first place, so this is a
+// defensive backstop (matching the existing `isBot(p) && !botRunning`
+// guards) rather than the primary gate.
+function mpIsMyTurn() { return !!(mp && mp.inGame && state && isLocalPlayer(currentPlayer())); }
+function mpShouldSendIntent() { return !!(mp && mp.inGame && !mp.isHost && mpIsMyTurn()); }
+
+function mpSendIntent(name, args) {
+  if (!mp || !mp.roomRef) return;
+  mp.roomRef.child("pendingActions").push({ playerId: myPlayerId, name, args: args || [] });
+}
+
+for (const mpActionName of MP_WRAPPED_ACTIONS) {
+  const mpOriginal = window[mpActionName];
+  MP_ORIGINAL_FNS[mpActionName] = mpOriginal;
+  window[mpActionName] = function (...args) {
+    if (mpShouldSendIntent()) { mpSendIntent(mpActionName, args); return; }
+    return mpOriginal.apply(this, args);
+  };
+}
+
+// resolveChoice, closeModalAndResolve, and shopBuyItem can't use the generic
+// wrapper above: their "whose choice/reveal/purchase is this" state lives in
+// DOM-local window globals or DOM nodes (window.__activeChoicePlayer,
+// window.__pendingCardResolve, the #shopDialog element) that only exist on
+// the single browser where that modal is actually open — never on the
+// host's browser when it's a *different* client's modal. mpApplyIntent
+// below resolves these from synced state instead (`pendingChoice` on the
+// player, `state.pendingReveal`, and SHOP_ITEMS directly).
+// Deliberately does NOT touch the modal DOM on intercept (unlike the shop
+// wrapper below) — pushing this intent changes the room's Firebase node
+// (adds a pendingActions child), which re-delivers the *current, not yet
+// resolved* gameState to this same client's own room listener a moment
+// later. If we'd optimistically hidden the modal here, that stale-but-
+// changed snapshot would look exactly like a fresh, never-shown reveal/
+// choice and mpMaybeShowMyReveal/mpMaybeShowMyChoice would pop it right back
+// open. Instead the modal just stays open until the host's actual
+// resolution arrives and those functions close it — see their comments.
+const MP_ORIGINAL_RESOLVE_CHOICE = resolveChoice;
+resolveChoice = function (params) {
+  if (mpShouldSendIntent()) { mpSendIntent("resolveChoice", [params]); return; }
+  return MP_ORIGINAL_RESOLVE_CHOICE(params);
+};
+
+const MP_ORIGINAL_CLOSE_MODAL_AND_RESOLVE = closeModalAndResolve;
+closeModalAndResolve = function () {
+  if (mpShouldSendIntent()) { mpSendIntent("closeModalAndResolve", []); return; }
+  return MP_ORIGINAL_CLOSE_MODAL_AND_RESOLVE();
+};
+
+const MP_ORIGINAL_SHOP_BUY_ITEM = shopBuyItem;
+shopBuyItem = function (idx) {
+  if (mpShouldSendIntent()) {
+    const dialog = document.getElementById("shopDialog");
+    if (!dialog || dialog.classList.contains("shop-locked")) return;
+    dialog.classList.add("shop-locked");
+    const bubble = document.getElementById("shopSpeechBubble");
+    if (bubble) bubble.textContent = "Thank you for your purchase!";
+    setTimeout(() => {
+      const backdrop = document.getElementById("modalBackdrop");
+      if (backdrop.contains(dialog)) backdrop.style.display = "none";
+    }, 1000);
+    mpSendIntent("shopBuyItem", [idx]);
+    return;
+  }
+  return MP_ORIGINAL_SHOP_BUY_ITEM(idx);
+};
+
+// Applies one queued intent from a non-host player. Runs only on whichever
+// client currently holds host status (see mpAttachGameplaySync) — including
+// after a mid-game host migration, since that just changes which client's
+// callback passes this check.
+function mpApplyIntent(action) {
+  if (!action || !mp || !mp.isHost || !state || state.gameOver) return;
+  if (action.playerId !== currentPlayer().id) return; // stale — turn already moved on, discard
+  if (action.name === "resolveChoice") {
+    const player = state.players.find((pl) => pl.id === action.playerId);
+    if (player && player.pendingChoice) MP_ORIGINAL_RESOLVE_CHOICE(action.args[0], player);
+  } else if (action.name === "closeModalAndResolve") {
+    const rev = state.pendingReveal;
+    if (rev && rev.playerId === action.playerId) {
+      const card = cardDef(rev.cardId);
+      const player = state.players.find((pl) => pl.id === rev.playerId);
+      state.pendingReveal = null;
+      resolveCardEffect(card, { ...rev.ctx, rng: rollDie }, player);
+      render();
+    }
+  } else if (action.name === "shopBuyItem") {
+    const item = SHOP_ITEMS[action.args[0]];
+    if (item) { item.buy(); render(); }
+  } else {
+    const fn = MP_ORIGINAL_FNS[action.name];
+    if (fn) { fn(...(action.args || [])); render(); }
+  }
+}
+
+// Listens for queued intents from every player (attached once per client on
+// entering the game, by both the host and everyone else, so whichever client
+// currently holds host status — including after a migration — is the one
+// whose mpApplyIntent call actually does anything).
+function mpAttachGameplaySync() {
+  if (mp.pendingActionsRef) return; // already attached
+  mp.pendingActionsRef = mp.roomRef.child("pendingActions");
+  mp.pendingActionsRef.on("child_added", (snap) => {
+    if (mp.isHost) mpApplyIntent(snap.val());
+    snap.ref.remove();
+  });
+}
+
+function mpPushGameState() {
+  if (mp.roomRef) mp.roomRef.child("gameState").set(state);
+}
+
+function mpMaybeShowMyReveal() {
+  const rev = state.pendingReveal;
+  if (rev && rev.playerId === myPlayerId) {
+    if (document.getElementById("modalBackdrop").style.display !== "flex") {
+      const player = state.players.find((p) => p.id === myPlayerId);
+      const card = rev.cardId && cardDef(rev.cardId);
+      if (player && card) showCardModal(card, { ...rev.ctx, rng: rollDie }, player);
+    }
+    return;
+  }
+  // No reveal pending for me — if I was showing one and clicked Continue
+  // (which, in multiplayer, only sends the intent without touching this
+  // modal — see closeModalAndResolve's wrapper), the host has now resolved
+  // it, so close it.
+  if (window.__pendingCardResolve) {
+    document.getElementById("modalBackdrop").style.display = "none";
+    window.__pendingCardResolve = null;
+  }
+}
+
+function mpMaybeShowMyChoice() {
+  const player = state.players.find((p) => p.id === myPlayerId);
+  if (player && player.pendingChoice) {
+    if (document.getElementById("modalBackdrop").style.display !== "flex") showChoiceModal(player);
+    return;
+  }
+  // Same idea as mpMaybeShowMyReveal: my choice was resolved by the host —
+  // close the modal I've been waiting in since I clicked an option.
+  if (window.__activeChoicePlayer) {
+    document.getElementById("modalBackdrop").style.display = "none";
+    window.__activeChoicePlayer = null;
+  }
+}
+
+// Sorted the same way on every client (by joinOrder), so each one can
+// independently compute the exact same uid -> seat mapping without the host
+// needing to transmit it.
+function mpRoomPlayersSortedByJoinOrder() {
+  return Object.entries((mp.room && mp.room.players) || {}).sort((a, b) => a[1].joinOrder - b[1].joinOrder);
+}
+function mpComputeMyPlayerId() {
+  const entries = mpRoomPlayersSortedByJoinOrder();
+  const idx = entries.findIndex(([uid]) => uid === mp.uid);
+  return idx === -1 ? null : `p${idx + 1}`;
 }
 
 // ============== GUEST EFFECTS ==============
@@ -2116,13 +2372,23 @@ function render() {
 
   if (!botRunning) maybeStartBotTurn();
 
-  if (state.gameOver && !state.gameEndDialogShown) {
-    state.gameEndDialogShown = true;
+  if (state.gameOver && !localGameOverDialogShown) {
+    localGameOverDialogShown = true;
     showGameEndDialog();
   }
 
   // Tutorial hook: no-op outside tutorial mode.
   if (tutorial) tutorialOnRender();
+
+  // Multiplayer hooks: no-ops outside an active multiplayer game.
+  if (mp && mp.inGame) {
+    if (mp.isHost) {
+      mpPushGameState();
+      if (state.gameOver && mp.room && mp.room.status !== "ended") mp.roomRef.child("status").set("ended");
+    }
+    mpMaybeShowMyReveal();
+    mpMaybeShowMyChoice();
+  }
 }
 
 function showGameEndDialog() {
@@ -2330,7 +2596,23 @@ function goToSplashScreen() {
   document.getElementById("tutorialBar").style.display = "none";
   document.getElementById("modalBackdrop").style.display = "none";
   tutorial = null;
+  if (mp && mp.inGame) mpLeaveGame();
   document.getElementById("splashScreen").style.display = "flex";
+}
+
+// Leaving mid-game (as opposed to mpLeaveRoom, used in the lobby before the
+// game starts) keeps the player's branches/menu/etc in `gameState` exactly
+// as the spec asks — only `connected` flips false, the same signal a
+// crash/tab-close already sends via onDisconnect. Actually skipping a
+// disconnected player's turn after a timeout is M5 (not yet built); this
+// just marks them absent immediately instead of waiting for that timeout.
+function mpLeaveGame() {
+  if (mp.roomRef) mp.roomRef.off("value", mpOnRoomSnapshot);
+  if (mp.pendingActionsRef) mp.pendingActionsRef.off("child_added");
+  if (mp.uid && mp.roomCode && mpDb) {
+    mpDb.ref(`rooms/${mp.roomCode}/players/${mp.uid}/connected`).set(false);
+  }
+  mp = null;
 }
 
 function requestGoToSplashScreen() {

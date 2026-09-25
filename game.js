@@ -383,8 +383,9 @@ function mpOnRoomSnapshot(snap) {
     if (mpCountdownTimer) { clearInterval(mpCountdownTimer); mpCountdownTimer = null; }
     document.getElementById("lobbyScreen").style.display = "none";
     document.getElementById("gameWrap").style.display = "";
+    applyBoardBackgrounds(); // buildInitialState (which normally sets these) only ever ran on the host
     mpAttachGameplaySync();
-    state = data.gameState;
+    state = mpNormalizeIncomingState(data.gameState);
     render();
     return;
   }
@@ -393,7 +394,7 @@ function mpOnRoomSnapshot(snap) {
     // Only a non-host applies incoming state here — the host's own state is
     // already authoritative locally, and re-adopting its own echoed write
     // would just be redundant (see mpPushGameState).
-    if (!mp.isHost && data.gameState) { state = data.gameState; render(); }
+    if (!mp.isHost && data.gameState) { state = mpNormalizeIncomingState(data.gameState); render(); }
     return;
   }
 
@@ -595,13 +596,23 @@ function updateBestScore() {
   }
 }
 
+// Sets the board's CSS background custom properties. Called by whichever
+// client actually builds the initial state (single player, or the
+// multiplayer host) AND by every other multiplayer client when it first
+// enters the game — buildInitialState() only ever runs once, on the host, so
+// without this every other client's menu/log sections render with no
+// background image at all.
+function applyBoardBackgrounds() {
+  document.documentElement.style.setProperty("--menu-bg-url", `url(${GAME_DATA.menuBg2})`);
+  document.documentElement.style.setProperty("--log-bg-url", `url(${GAME_DATA.logBg})`);
+}
+
 // Shared by initGame (single player, real p1 + bots) and initMultiplayerGame
 // (every seat a real connected player, no bots) — `playerSpecs` is just the
 // ordered list of {id, name} to seat, so both callers get byte-identical
 // setup/RNG-order otherwise.
 function buildInitialState(playerSpecs) {
-  document.documentElement.style.setProperty("--menu-bg-url", `url(${GAME_DATA.menuBg2})`);
-  document.documentElement.style.setProperty("--log-bg-url", `url(${GAME_DATA.logBg})`);
+  applyBoardBackgrounds();
   const recipePile = shuffle(GAME_DATA.recipes.map((r) => r.id));
   const players = playerSpecs.map((spec) => createPlayer(spec.id, spec.name));
   for (const p of players) {
@@ -1777,6 +1788,31 @@ function mpComputeMyPlayerId() {
   const entries = mpRoomPlayersSortedByJoinOrder();
   const idx = entries.findIndex(([uid]) => uid === mp.uid);
   return idx === -1 ? null : `p${idx + 1}`;
+}
+
+// Firebase Realtime Database silently drops any key whose value is an empty
+// array/object, or explicit null — exactly the shape `villages`/
+// `branchOwners` use for every unclaimed/unexplored village, and the shape
+// `recipeDiscard`/`guestPile`/`eventPile` start in at game start. A client
+// that adopts `state` from a Firebase snapshot (i.e. every non-host client)
+// would otherwise find these keys simply missing instead of `null`/`[]`,
+// and `.length`/`.push()` on `undefined` throws — silently aborting the rest
+// of that render() call (map, log, end-game checks) partway through. Called
+// on every incoming gameState before it replaces `state`.
+function mpNormalizeIncomingState(s) {
+  s.recipePile = s.recipePile || [];
+  s.recipeDiscard = s.recipeDiscard || [];
+  s.guestPile = s.guestPile || [];
+  s.eventPile = s.eventPile || [];
+  s.log = s.log || [];
+  s.villages = s.villages || {};
+  s.branchOwners = s.branchOwners || {};
+  for (const node of MAP_NODES) {
+    if (!(node.id in s.villages)) s.villages[node.id] = node.id === "start" ? { ...START_VILLAGE } : null;
+    if (!(node.id in s.branchOwners)) s.branchOwners[node.id] = [];
+  }
+  for (const p of s.players) p.recipes = p.recipes || [];
+  return s;
 }
 
 // ============== GUEST EFFECTS ==============

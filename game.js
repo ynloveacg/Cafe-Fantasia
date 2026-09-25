@@ -172,6 +172,22 @@ const MP_MAX_PLAYERS = 4;
 const MP_MIN_PLAYERS = 2;
 const MP_TURN_TIME_LIMIT_MS = 120 * 1000;
 
+// Lets a refreshed/reopened tab rejoin the room/seat it was already in,
+// instead of losing its game entirely — see mpTryReconnect(). Wrapped in
+// try/catch everywhere: localStorage isn't defined in test_harness.js's
+// Node sandbox, and can also throw in private browsing.
+const MP_SESSION_STORAGE_KEY = "cafeFantasiaMpSession";
+function mpSaveSession() {
+  if (!mp) return;
+  try { localStorage.setItem(MP_SESSION_STORAGE_KEY, JSON.stringify({ roomCode: mp.roomCode, uid: mp.uid, myName: mp.myName })); } catch (e) { /* unavailable */ }
+}
+function mpLoadSession() {
+  try { return JSON.parse(localStorage.getItem(MP_SESSION_STORAGE_KEY) || "null"); } catch (e) { return null; }
+}
+function mpClearSession() {
+  try { localStorage.removeItem(MP_SESSION_STORAGE_KEY); } catch (e) { /* unavailable */ }
+}
+
 // Any text that came from Firebase (a player's typed name, in particular) is
 // untrusted — the open-by-design security rules let any client with a room
 // code write anything, not just what this file's own dialogs allow — so it
@@ -366,7 +382,38 @@ function mpAfterJoinOrCreate() {
   mp.roomRef.on("value", mpOnRoomSnapshot);
   document.getElementById("splashScreen").style.display = "none";
   document.getElementById("lobbyScreen").style.display = "flex";
+  mpSaveSession(); // lets mpTryReconnect() rejoin this same seat after a refresh/crash
 }
+
+// Runs once at page load. If this browser has a saved session from before a
+// refresh/crash, silently rejoins the same room and seat instead of showing
+// the splash screen — mpOnRoomSnapshot already knows how to render whatever
+// state that room is actually in (lobby, in-progress game, expired, or
+// ended), so reconnecting just means recreating `mp` and re-attaching its
+// listener; no separate "resume" UI path is needed.
+function mpTryReconnect() {
+  const saved = mpLoadSession();
+  if (!saved || !mpDb) return;
+  document.getElementById("splashScreen").style.display = "none";
+  document.getElementById("lobbyScreen").style.display = "flex";
+  document.getElementById("lobbyScreen").innerHTML = `<div class="lobby-card"><h2>Reconnecting…</h2><p class="mp-hint">Rejoining your game…</p></div>`;
+  const giveUp = () => {
+    mpClearSession();
+    document.getElementById("lobbyScreen").style.display = "none";
+    document.getElementById("splashScreen").style.display = "flex";
+  };
+  mpDb.ref("rooms/" + saved.roomCode).once("value").then((snap) => {
+    const data = snap.val();
+    if (!data || !data.players || !data.players[saved.uid]) { giveUp(); return; }
+    mp = { uid: saved.uid, roomCode: saved.roomCode, myName: saved.myName, isHost: data.hostUid === saved.uid };
+    const playerRef = mpDb.ref(`rooms/${mp.roomCode}/players/${mp.uid}`);
+    playerRef.child("connected").set(true); // onDisconnect() only fixes future disconnects, not the already-false value from the last one
+    playerRef.child("connected").onDisconnect().set(false);
+    mp.roomRef = mpDb.ref("rooms/" + mp.roomCode);
+    mp.roomRef.on("value", mpOnRoomSnapshot);
+  }).catch(giveUp);
+}
+mpTryReconnect();
 
 // ============== MULTIPLAYER: LOBBY ==============
 function mpOnRoomSnapshot(snap) {
@@ -496,6 +543,7 @@ function mpStartGame() {
 }
 
 function mpLeaveRoom(silent) {
+  mpClearSession(); // whether this is an explicit leave or the room's just gone, there's nothing left to reconnect to
   if (mp) {
     if (mp.roomRef) mp.roomRef.off("value", mpOnRoomSnapshot);
     if (mp.uid && mp.roomCode && mpDb) {
@@ -2799,10 +2847,12 @@ function goToSplashScreen() {
 // Leaving mid-game (as opposed to mpLeaveRoom, used in the lobby before the
 // game starts) keeps the player's branches/menu/etc in `gameState` exactly
 // as the spec asks — only `connected` flips false, the same signal a
-// crash/tab-close already sends via onDisconnect. Actually skipping a
-// disconnected player's turn after a timeout is M5 (not yet built); this
-// just marks them absent immediately instead of waiting for that timeout.
+// crash/tab-close already sends via onDisconnect; mpCheckTurnTimeout (M5)
+// then skips their turn without waiting the full 120s once it notices. This
+// is an explicit, intentional leave, so unlike a refresh/crash it also
+// clears the saved session — there's nothing to reconnect back into.
 function mpLeaveGame() {
+  mpClearSession();
   if (mp.roomRef) mp.roomRef.off("value", mpOnRoomSnapshot);
   if (mp.pendingActionsRef) mp.pendingActionsRef.off("child_added");
   if (mp.uid && mp.roomCode && mpDb) {

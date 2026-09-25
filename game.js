@@ -171,6 +171,10 @@ const MP_ROOM_TTL_MS = 30 * 60 * 1000;
 const MP_MAX_PLAYERS = 4;
 const MP_MIN_PLAYERS = 2;
 const MP_TURN_TIME_LIMIT_MS = 120 * 1000;
+// How long a disconnected player is still counted as "in the game" before
+// last-player-standing (or the disconnect fast-path in mpCheckTurnTimeout)
+// gives up on them — long enough to cover a refresh/reload round-trip.
+const MP_DISCONNECT_GRACE_MS = 60 * 1000;
 
 // Lets a refreshed/reopened tab rejoin the room/seat it was already in,
 // instead of losing its game entirely — see mpTryReconnect(). Wrapped in
@@ -374,10 +378,17 @@ async function mpJoinRandomRoom(name) {
   }
 }
 
+// Registered whenever a client is actively connected to a room (fresh join
+// or reconnect) — writes disconnectedAt alongside connected:false so
+// mpWithinReconnectGrace can tell "just dropped a moment ago" from "gone".
+function mpRegisterDisconnectHandler(playerRef) {
+  playerRef.onDisconnect().update({ connected: false, disconnectedAt: firebase.database.ServerValue.TIMESTAMP });
+}
+
 function mpAfterJoinOrCreate() {
   document.getElementById("modalBackdrop").style.display = "none";
   const playerRef = mpDb.ref(`rooms/${mp.roomCode}/players/${mp.uid}`);
-  playerRef.child("connected").onDisconnect().set(false);
+  mpRegisterDisconnectHandler(playerRef);
   mp.roomRef = mpDb.ref("rooms/" + mp.roomCode);
   mp.roomRef.on("value", mpOnRoomSnapshot);
   document.getElementById("splashScreen").style.display = "none";
@@ -407,8 +418,11 @@ function mpTryReconnect() {
     if (!data || !data.players || !data.players[saved.uid]) { giveUp(); return; }
     mp = { uid: saved.uid, roomCode: saved.roomCode, myName: saved.myName, isHost: data.hostUid === saved.uid };
     const playerRef = mpDb.ref(`rooms/${mp.roomCode}/players/${mp.uid}`);
-    playerRef.child("connected").set(true); // onDisconnect() only fixes future disconnects, not the already-false value from the last one
-    playerRef.child("connected").onDisconnect().set(false);
+    // onDisconnect() only fixes *future* disconnects — connected/disconnectedAt
+    // need to be reset explicitly to undo the already-written values from the
+    // last one, so mpWithinReconnectGrace stops granting grace immediately.
+    playerRef.update({ connected: true, disconnectedAt: null });
+    mpRegisterDisconnectHandler(playerRef);
     mp.roomRef = mpDb.ref("rooms/" + mp.roomCode);
     mp.roomRef.on("value", mpOnRoomSnapshot);
   }).catch(giveUp);
@@ -548,7 +562,7 @@ function mpLeaveRoom(silent) {
     if (mp.roomRef) mp.roomRef.off("value", mpOnRoomSnapshot);
     if (mp.uid && mp.roomCode && mpDb) {
       const playerRef = mpDb.ref(`rooms/${mp.roomCode}/players/${mp.uid}`);
-      playerRef.child("connected").onDisconnect().cancel();
+      playerRef.onDisconnect().cancel(); // matches the whole-ref onDisconnect() registered by mpRegisterDisconnectHandler
       if (!silent) {
         const myUid = mp.uid;
         // Remove myself from the room's players in one transaction so a
@@ -1854,22 +1868,38 @@ function mpAttachGameplaySync() {
 // Maps a game seat ("p2") back to its Firebase room player entry, using the
 // same joinOrder-sorted mapping used to assign seats at game start (see
 // mpComputeMyPlayerId) — no separate uid<->seat lookup table needed.
-function mpIsPlayerConnected(playerId) {
-  if (!mp || !mp.room) return true; // no room data yet — assume connected rather than wrongly skip a turn
+function mpGetRoomPlayerEntry(playerId) {
+  if (!mp || !mp.room) return null;
   const entries = mpRoomPlayersSortedByJoinOrder();
   const idx = parseInt(playerId.slice(1), 10) - 1;
-  const entry = entries[idx];
-  return !!(entry && entry[1].connected);
+  return entries[idx] || null;
+}
+function mpIsPlayerConnected(playerId) {
+  const entry = mpGetRoomPlayerEntry(playerId);
+  if (!entry) return true; // no room data yet — assume connected rather than wrongly skip a turn
+  return !!entry[1].connected;
+}
+// True for a disconnected player only within MP_DISCONNECT_GRACE_MS of their
+// disconnectedAt timestamp (set alongside connected:false, by onDisconnect()
+// or an intentional leave) — gives a refresh/reload time to land before
+// they're treated as actually gone. Always false once they're connected
+// again (disconnectedAt gets cleared on reconnect) or once grace runs out.
+function mpWithinReconnectGrace(playerId) {
+  const entry = mpGetRoomPlayerEntry(playerId);
+  if (!entry || entry[1].connected || !entry[1].disconnectedAt) return false;
+  return Date.now() - entry[1].disconnectedAt < MP_DISCONNECT_GRACE_MS;
 }
 
-// Forces the current player's turn to end if they've been disconnected the
-// whole time (no point waiting out the clock) or the 120s limit has
-// elapsed — "abandon any pending guest/event and move to the next player
-// automatically" per the spec.
+// Forces the current player's turn to end if they've been disconnected past
+// their reconnect grace period (no point waiting out the clock for someone
+// who's actually gone) or the 120s limit has elapsed regardless of
+// connection — "abandon any pending guest/event and move to the next player
+// automatically" per the spec. A disconnect within the grace window doesn't
+// skip the turn early on its own; the 120s cap still applies underneath it.
 function mpCheckTurnTimeout() {
   if (!mp || !mp.isHost || !mp.inGame || !state || state.gameOver) return;
   const p = currentPlayer();
-  if (!mpIsPlayerConnected(p.id)) { mpForceAdvanceTurn("disconnected"); return; }
+  if (!mpIsPlayerConnected(p.id) && !mpWithinReconnectGrace(p.id)) { mpForceAdvanceTurn("disconnected"); return; }
   const elapsed = Date.now() - (state.turnStartedAt || Date.now());
   if (elapsed >= MP_TURN_TIME_LIMIT_MS) mpForceAdvanceTurn("timeout");
 }
@@ -1893,14 +1923,16 @@ function mpForceAdvanceTurn(reason) {
 
 // "If only one player remain in the game, that player wins" — checked on
 // the same interval as the turn timer (and from mpOnRoomSnapshot, so a
-// disconnect is caught immediately rather than up to 2s late).
+// disconnect is caught quickly). A disconnected player still counts as
+// "remaining" during their reconnect grace period, so a refresh doesn't end
+// the game on the other player before the refreshing one can reload.
 function mpCheckLastPlayerStanding() {
   if (!mp || !mp.isHost || !mp.inGame || !state || state.gameOver) return;
   if (state.players.length <= 1) return;
-  const connected = state.players.filter((p) => mpIsPlayerConnected(p.id));
-  if (connected.length === 1) {
-    endGame(`${connected[0].name} is the last player remaining`);
-    state.winnerId = connected[0].id; // overrides endGame's score-based pick — the spec says last standing always wins
+  const remaining = state.players.filter((p) => mpIsPlayerConnected(p.id) || mpWithinReconnectGrace(p.id));
+  if (remaining.length === 1) {
+    endGame(`${remaining[0].name} is the last player remaining`);
+    state.winnerId = remaining[0].id; // overrides endGame's score-based pick — the spec says last standing always wins
     render();
   }
 }

@@ -1355,7 +1355,15 @@ function showOtherPlayersModal() {
   const others = state.players.filter((p) => p.id !== myPlayerId);
   document.getElementById("modalBody").innerHTML =
     `<button class="modal-close-btn" onclick="document.getElementById('modalBackdrop').style.display='none'" aria-label="Close"></button>` +
-    others.map((p) => renderPlayerCard(p, state.players.indexOf(p))).join("");
+    others.map((p) => {
+      const idx = state.players.indexOf(p);
+      const inMpGame = !!(mp && mp.inGame);
+      const turnBadge = inMpGame && idx === state.turnIndex
+        ? ` <span style="color:var(--accent);font-weight:600;">— their turn</span>` : "";
+      const disconnectedBadge = inMpGame && !mpIsPlayerConnected(p.id)
+        ? ` <span style="color:#C80101;font-weight:600;">(disconnected)</span>` : "";
+      return `<div style="font-weight:700;margin-bottom:4px;">${escapeHtml(p.name)}${turnBadge}${disconnectedBadge}</div>` + renderPlayerCard(p, idx);
+    }).join("");
   document.getElementById("modalBackdrop").style.display = "flex";
   document.getElementById("modalBox").classList.add("modal-wide");
 }
@@ -2497,7 +2505,9 @@ function render() {
     const icon = GAME_DATA.guestTypeImages[type];
     return icon ? `<img src="${icon}" alt="${type}" style="width:16px;height:16px;object-fit:contain;vertical-align:-3px;">` : type;
   };
-  const cookInfoText = prepPhase
+  const cookInfoText = mp && mp.inGame && !humansTurn
+    ? `<em>⏳ Waiting for ${escapeHtml(p.name)}'s turn…</em>`
+    : prepPhase
     ? `<em>Finish your 3 actions (${state.actionsLeft} left) to unlock cooking.</em>`
     : `Guest capacity remaining this turn:
       <span class="pill">${capIcon("cat")} ${p.guestCapacityRemaining.cat}</span>

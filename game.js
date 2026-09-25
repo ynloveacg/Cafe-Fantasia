@@ -165,9 +165,12 @@ function mpInitFirebase() {
 const mpDb = mpInitFirebase();
 let mp = null; // { uid, roomCode, isHost, myName, room, roomRef } once in a multiplayer session
 let mpCountdownTimer = null;
+let mpTurnCountdownTimer = null;
+let mpTurnTimeoutInterval = null;
 const MP_ROOM_TTL_MS = 30 * 60 * 1000;
 const MP_MAX_PLAYERS = 4;
 const MP_MIN_PLAYERS = 2;
+const MP_TURN_TIME_LIMIT_MS = 120 * 1000;
 
 // Any text that came from Firebase (a player's typed name, in particular) is
 // untrusted — the open-by-design security rules let any client with a room
@@ -395,6 +398,9 @@ function mpOnRoomSnapshot(snap) {
     // already authoritative locally, and re-adopting its own echoed write
     // would just be redundant (see mpPushGameState).
     if (!mp.isHost && data.gameState) { state = mpNormalizeIncomingState(data.gameState); render(); }
+    // Catches a disconnect the moment this snapshot reports it, rather than
+    // waiting for the next 2s turn-timer tick (mpAttachGameplaySync).
+    if (mp.isHost) mpCheckLastPlayerStanding();
     return;
   }
 
@@ -642,6 +648,7 @@ function buildInitialState(playerSpecs) {
     anyRecipeDevelopedThisRound: false,
     pendingReveal: null, // { playerId, cardId, ctx } — multiplayer's networked stand-in for showCardModal's window.__pendingCardResolve, see the MULTIPLAYER GAMEPLAY SYNC section
     pendingResult: null, // { playerId, id, kind, image, title, subtitle, diceFaces, showSavedDieButton } — same idea for showActionResultModal (hunt/fish/fruit-picking result popups)
+    turnStartedAt: Date.now(), // multiplayer's 120s-per-turn timer reads this; unused (harmless) outside multiplayer
   };
   refreshGuestCapacity(players[0]);
   localGameOverDialogShown = false;
@@ -782,6 +789,7 @@ function endTurn() {
   }
 
   state.turnIndex = (state.turnIndex + 1) % state.players.length;
+  state.turnStartedAt = Date.now();
 
   const next = currentPlayer();
   state.actionsLeft = Math.max(1, 3 + next.nextTurnActionDelta);
@@ -1774,6 +1782,93 @@ function mpAttachGameplaySync() {
       snap.ref.remove();
     }
   });
+  // Turn-timeout + last-player-standing enforcement (M5): every client sets
+  // this up, but the checks inside only ever do anything on whichever one
+  // currently holds host status — same "recheck fresh every tick" pattern
+  // as the pendingActions listener above, so a mid-game host migration picks
+  // up enforcement automatically.
+  if (!mpTurnTimeoutInterval) {
+    mpTurnTimeoutInterval = setInterval(() => {
+      if (mp && mp.isHost) { mpCheckTurnTimeout(); mpCheckLastPlayerStanding(); }
+    }, 2000);
+  }
+  mpStartTurnCountdownTicker();
+}
+
+// Maps a game seat ("p2") back to its Firebase room player entry, using the
+// same joinOrder-sorted mapping used to assign seats at game start (see
+// mpComputeMyPlayerId) — no separate uid<->seat lookup table needed.
+function mpIsPlayerConnected(playerId) {
+  if (!mp || !mp.room) return true; // no room data yet — assume connected rather than wrongly skip a turn
+  const entries = mpRoomPlayersSortedByJoinOrder();
+  const idx = parseInt(playerId.slice(1), 10) - 1;
+  const entry = entries[idx];
+  return !!(entry && entry[1].connected);
+}
+
+// Forces the current player's turn to end if they've been disconnected the
+// whole time (no point waiting out the clock) or the 120s limit has
+// elapsed — "abandon any pending guest/event and move to the next player
+// automatically" per the spec.
+function mpCheckTurnTimeout() {
+  if (!mp || !mp.isHost || !mp.inGame || !state || state.gameOver) return;
+  const p = currentPlayer();
+  if (!mpIsPlayerConnected(p.id)) { mpForceAdvanceTurn("disconnected"); return; }
+  const elapsed = Date.now() - (state.turnStartedAt || Date.now());
+  if (elapsed >= MP_TURN_TIME_LIMIT_MS) mpForceAdvanceTurn("timeout");
+}
+
+function mpForceAdvanceTurn(reason) {
+  const p = currentPlayer();
+  if (p.pendingChoice) {
+    p.pendingChoice = null;
+    logMsg(`${p.name} ran out of time and forfeited a pending choice`);
+  }
+  if (state.pendingReveal && state.pendingReveal.playerId === p.id) {
+    state.pendingReveal = null;
+    logMsg(`${p.name} ran out of time and abandoned an unresolved guest/event`);
+  }
+  logMsg(reason === "disconnected"
+    ? `${p.name} is disconnected — turn skipped`
+    : `${p.name}'s turn timed out (120s) — moving to the next player`);
+  endTurn();
+  render();
+}
+
+// "If only one player remain in the game, that player wins" — checked on
+// the same interval as the turn timer (and from mpOnRoomSnapshot, so a
+// disconnect is caught immediately rather than up to 2s late).
+function mpCheckLastPlayerStanding() {
+  if (!mp || !mp.isHost || !mp.inGame || !state || state.gameOver) return;
+  if (state.players.length <= 1) return;
+  const connected = state.players.filter((p) => mpIsPlayerConnected(p.id));
+  if (connected.length === 1) {
+    endGame(`${connected[0].name} is the last player remaining`);
+    state.winnerId = connected[0].id; // overrides endGame's score-based pick — the spec says last standing always wins
+    render();
+  }
+}
+
+// Ticks the header's "Xs left" display once a second for every client (not
+// just the host) — purely cosmetic, reads state.turnStartedAt which is
+// already kept in sync.
+function mpStartTurnCountdownTicker() {
+  if (mpTurnCountdownTimer) clearInterval(mpTurnCountdownTimer);
+  const el = document.getElementById("mpTurnTimer");
+  if (el) el.style.display = "inline";
+  mpTurnCountdownTimer = setInterval(() => {
+    if (!mp || !mp.inGame || !state || state.gameOver) { mpStopTurnCountdownTicker(); return; }
+    const timerEl = document.getElementById("mpTurnTimer");
+    if (!timerEl) return;
+    const left = Math.max(0, MP_TURN_TIME_LIMIT_MS - (Date.now() - (state.turnStartedAt || Date.now())));
+    timerEl.textContent = ` · ${Math.ceil(left / 1000)}s left`;
+  }, 500);
+}
+
+function mpStopTurnCountdownTicker() {
+  if (mpTurnCountdownTimer) { clearInterval(mpTurnCountdownTimer); mpTurnCountdownTimer = null; }
+  const el = document.getElementById("mpTurnTimer");
+  if (el) { el.style.display = "none"; el.textContent = ""; }
 }
 
 function mpPushGameState() {
@@ -1859,6 +1954,8 @@ function mpNormalizeIncomingState(s) {
   s.log = s.log || [];
   s.villages = s.villages || {};
   s.branchOwners = s.branchOwners || {};
+  if (s.pendingReveal === undefined) s.pendingReveal = null;
+  if (s.pendingResult === undefined) s.pendingResult = null;
   for (const node of MAP_NODES) {
     if (!(node.id in s.villages)) s.villages[node.id] = node.id === "start" ? { ...START_VILLAGE } : null;
     if (!(node.id in s.branchOwners)) s.branchOwners[node.id] = [];
@@ -2702,6 +2799,8 @@ function mpLeaveGame() {
     mpDb.ref(`rooms/${mp.roomCode}/players/${mp.uid}/connected`).set(false);
   }
   mp = null;
+  if (mpTurnTimeoutInterval) { clearInterval(mpTurnTimeoutInterval); mpTurnTimeoutInterval = null; }
+  mpStopTurnCountdownTicker();
 }
 
 function requestGoToSplashScreen() {

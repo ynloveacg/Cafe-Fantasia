@@ -531,7 +531,7 @@ function mpRenderLobby() {
     : `<p class="mp-hint">Waiting for ${hostEntry ? escapeHtml(hostEntry.name) : "the host"} to start the game…</p>`;
 
   lobbyScreen.innerHTML = `<div class="lobby-card">
-    <h2>Room: ${escapeHtml(mp.roomCode)}</h2>
+    <h2 class="mp-room-header">Room: ${escapeHtml(mp.roomCode)} <button class="mp-copy-btn" id="mpCopyRoomBtn" onclick="mpCopyRoomCode()" title="Copy room code">Copy</button></h2>
     <p class="mp-hint">Share this room name with friends so they can join.</p>
     <ul class="mp-player-list">${playerListHtml}</ul>
     <p class="mp-hint">Time left: <span id="lobbyTimeLeft">${mpFormatTimeLeft(mpRoomTimeLeftMs())}</span></p>
@@ -539,6 +539,44 @@ function mpRenderLobby() {
     <button onclick="mpLeaveRoom()">Leave room</button>
   </div>`;
   mpStartCountdownTicker();
+}
+
+// Copies the room code to the clipboard and briefly flips the button to a
+// "Copied!" state so tapping it gives feedback even though nothing else on
+// screen changes. Falls back to a hidden-textarea + execCommand("copy") for
+// browsers/contexts where the async Clipboard API isn't available.
+function mpCopyRoomCode() {
+  if (!mp || !mp.roomCode) return;
+  const showCopiedFeedback = () => {
+    const btn = document.getElementById("mpCopyRoomBtn");
+    if (!btn) return;
+    btn.textContent = "Copied!";
+    btn.classList.add("mp-copy-btn-done");
+    clearTimeout(btn._mpCopyResetTimer);
+    btn._mpCopyResetTimer = setTimeout(() => {
+      btn.textContent = "Copy";
+      btn.classList.remove("mp-copy-btn-done");
+    }, 1500);
+  };
+  const fallbackCopy = () => {
+    try {
+      const ta = document.createElement("textarea");
+      ta.value = mp.roomCode;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+      showCopiedFeedback();
+    } catch (e) { /* clipboard unavailable in this context */ }
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(mp.roomCode).then(showCopiedFeedback).catch(fallbackCopy);
+  } else {
+    fallbackCopy();
+  }
 }
 
 function mpStartGame() {

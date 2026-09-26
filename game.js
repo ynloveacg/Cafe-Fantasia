@@ -1975,6 +1975,12 @@ function mpCheckLastPlayerStanding() {
   }
 }
 
+// Below this many ms left, the timer turns amber; below this, it turns red
+// and pulses — a glance at the header should be enough to feel the turn is
+// running out, not just reading the number.
+const MP_TURN_WARNING_MS = 30 * 1000;
+const MP_TURN_CRITICAL_MS = 10 * 1000;
+
 // Ticks the header's "Xs left" display once a second for every client (not
 // just the host) — purely cosmetic, reads state.turnStartedAt which is
 // already kept in sync.
@@ -1988,13 +1994,15 @@ function mpStartTurnCountdownTicker() {
     if (!timerEl) return;
     const left = Math.max(0, MP_TURN_TIME_LIMIT_MS - (Date.now() - (state.turnStartedAt || Date.now())));
     timerEl.textContent = ` · ${Math.ceil(left / 1000)}s left`;
+    timerEl.classList.toggle("mp-timer-critical", left <= MP_TURN_CRITICAL_MS);
+    timerEl.classList.toggle("mp-timer-warning", left > MP_TURN_CRITICAL_MS && left <= MP_TURN_WARNING_MS);
   }, 500);
 }
 
 function mpStopTurnCountdownTicker() {
   if (mpTurnCountdownTimer) { clearInterval(mpTurnCountdownTimer); mpTurnCountdownTimer = null; }
   const el = document.getElementById("mpTurnTimer");
-  if (el) { el.style.display = "none"; el.textContent = ""; }
+  if (el) { el.style.display = "none"; el.textContent = ""; el.classList.remove("mp-timer-warning", "mp-timer-critical"); }
 }
 
 function mpPushGameState() {

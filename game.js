@@ -2855,13 +2855,32 @@ function showBestScoreDialog() {
 // ============== COLLECTION (card gallery) ==============
 const COLLECTION_STORAGE_KEY = "cafeFantasiaSeenCards";
 
+// Each guest id has a separate piece of art per species (cat/elf/giant) —
+// distinct collectible cards, not one card with interchangeable art — so
+// guest sightings are keyed by "id:type" rather than by id alone.
+function guestSlotKey(guestId, type) { return `${guestId}:${type}`; }
+
 // Re-read from localStorage on demand rather than cached in memory — the
 // sighting that fills a slot and the screen that reads it can be far apart
 // (a whole game in between), so there's no in-memory copy worth keeping.
 function loadSeenCards() {
   try {
     const data = JSON.parse(localStorage.getItem(COLLECTION_STORAGE_KEY) || "null");
-    return { guests: (data && data.guests) || {}, events: (data && data.events) || {} };
+    const guests = (data && data.guests) || {};
+    // Migrate the pre-existing "id -> single type" shape (from before guest
+    // cards were tracked per species) into "id:type -> true" so an already
+    // recorded sighting isn't silently dropped.
+    const migrated = {};
+    let needsMigration = false;
+    for (const [key, value] of Object.entries(guests)) {
+      if (value === true) { migrated[key] = true; continue; }
+      needsMigration = true;
+      migrated[guestSlotKey(key, value)] = true;
+    }
+    if (needsMigration) {
+      try { localStorage.setItem(COLLECTION_STORAGE_KEY, JSON.stringify({ guests: migrated, events: (data && data.events) || {} })); } catch (e) { /* ignore */ }
+    }
+    return { guests: migrated, events: (data && data.events) || {} };
   } catch (e) {
     return { guests: {}, events: {} }; // localStorage unavailable (private browsing, disabled storage, headless test)
   }
@@ -2869,13 +2888,13 @@ function loadSeenCards() {
 
 // Called from showCardModal once it's decided the reveal is actually being
 // displayed on this browser (not, say, a multiplayer teammate's own
-// reveal) — that's this browser's definition of "seen". For guest cards,
-// remembers which type-variant (cat/elf/giant) was actually shown so the
-// gallery can display the exact art seen instead of guessing one.
+// reveal) — that's this browser's definition of "seen". Guest cards are
+// recorded per species variant actually shown (see guestSlotKey), since
+// each is a visually distinct card in the gallery.
 function recordCardSeen(card, guestTypeArt) {
   try {
     const seen = loadSeenCards();
-    if (card.kind === "guest") seen.guests[card.id] = guestTypeArt || seen.guests[card.id] || "cat";
+    if (card.kind === "guest") seen.guests[guestSlotKey(card.id, guestTypeArt || "cat")] = true;
     else seen.events[card.id] = true;
     localStorage.setItem(COLLECTION_STORAGE_KEY, JSON.stringify(seen));
   } catch (e) { /* localStorage unavailable */ }
@@ -2889,12 +2908,14 @@ function showCollectionScreen() {
 
 function renderCollectionScreen() {
   const seen = loadSeenCards();
-  const guestSlotsHtml = GAME_DATA.guests.map((g) => {
-    const type = seen.guests[g.id];
-    if (!type) return `<div class="collection-slot unseen" title="Not yet seen">?</div>`;
-    const variants = GAME_DATA.guestImagesByType[g.id];
-    const img = (variants && variants[type]) || Object.values(variants || {})[0];
-    return `<div class="collection-slot seen" onclick="showCollectionCardModal('${g.id}','${type}')"><img src="${img}" alt="${escapeHtml(g.name)}"></div>`;
+  let guestTotal = 0;
+  const guestSlotsHtml = GAME_DATA.guests.flatMap((g) => {
+    const variants = GAME_DATA.guestImagesByType[g.id] || {};
+    return Object.entries(variants).map(([type, img]) => {
+      guestTotal++;
+      if (!seen.guests[guestSlotKey(g.id, type)]) return `<div class="collection-slot unseen" title="Not yet seen">?</div>`;
+      return `<div class="collection-slot seen" onclick="showCollectionCardModal('${g.id}','${type}')"><img src="${img}" alt="${escapeHtml(g.name)} (${type})"></div>`;
+    });
   }).join("");
   const eventSlotsHtml = GAME_DATA.events.map((e) => {
     if (!seen.events[e.id]) return `<div class="collection-slot unseen" title="Not yet seen">?</div>`;
@@ -2910,7 +2931,7 @@ function renderCollectionScreen() {
       <h1>Collection</h1>
     </div>
     <div class="collection-body">
-      <div class="collection-section-title">Guests (${guestSeenCount}/${GAME_DATA.guests.length})</div>
+      <div class="collection-section-title">Guests (${guestSeenCount}/${guestTotal})</div>
       <div class="collection-grid">${guestSlotsHtml}</div>
       <div class="collection-section-title">Events (${eventSeenCount}/${GAME_DATA.events.length})</div>
       <div class="collection-grid">${eventSlotsHtml}</div>

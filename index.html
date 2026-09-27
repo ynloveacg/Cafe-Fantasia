@@ -50,6 +50,19 @@
   .story-image-wrap img { display: block; width: 100%; height: auto; }
   .story-text { max-width: 760px; width: 100%; margin: 0; font-size: 16px; line-height: 1.7; color: var(--accent); text-align: left; }
   .story-nav { max-width: 760px; width: 100%; display: flex; justify-content: space-between; gap: 12px; }
+  .collection-screen { min-height: 100vh; background: var(--bg); }
+  .collection-header { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 16px 0; background: rgba(250,241,224,0.85); border-bottom: 1px solid var(--border); position: relative; }
+  .collection-header h1 { font-size: 18px; margin: 0; color: var(--text); }
+  .collection-back-btn { position: absolute; left: 16px; background: none; border: 1px solid var(--border); border-radius: 14px; padding: 6px 14px; font-size: 13px; cursor: pointer; color: var(--text); }
+  .collection-body { max-width: 900px; margin: 0 auto; padding: 24px 20px 48px; }
+  .collection-section-title { font-size: 14px; font-weight: 700; color: var(--accent); margin: 24px 0 10px; }
+  .collection-section-title:first-child { margin-top: 0; }
+  .collection-grid { display: flex; flex-wrap: wrap; gap: 10px; }
+  .collection-slot { width: 84px; height: 118px; flex-shrink: 0; border-radius: 6px; border: 1px solid var(--border); background: #fff; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  .collection-slot img { width: 100%; height: 100%; object-fit: contain; }
+  .collection-slot.seen { cursor: pointer; }
+  .collection-slot.seen:hover { border-color: var(--accent); box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+  .collection-slot.unseen { background: var(--bg); color: var(--muted); font-size: 26px; font-weight: 700; }
   .story-btn { padding: 12px 30px; border-radius: 22px; border: none; background: var(--btn-blue); color: #fff; font-size: 15px; font-weight: 600; cursor: pointer; }
 
   .lobby-screen { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: var(--bg); padding: 24px; }
@@ -195,6 +208,7 @@
       <button class="splash-btn" onclick="showSinglePlayerDialog()">Single Player</button>
       <button class="splash-btn" onclick="mpShowEntryModal()">Multi player</button>
       <button class="splash-btn" onclick="showBestScoreDialog()">Best record</button>
+      <button class="splash-btn" onclick="showCollectionScreen()">Collection</button>
     </div>
   </div>
 </div>
@@ -214,6 +228,8 @@
 </div>
 
 <div id="lobbyScreen" class="lobby-screen" style="display:none"></div>
+
+<div id="collectionScreen" class="collection-screen" style="display:none"></div>
 
 <div id="tutorialBar" class="tutorial-bar">
   <div class="tutorial-bar-inner">

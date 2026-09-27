@@ -1518,9 +1518,12 @@ function showCardModal(card, ctx, player) {
   if (card.kind === "guest") {
     const variants = GAME_DATA.guestImagesByType[card.id];
     const type = (ctx && ctx.guestTypeArt) || "cat";
-    img = variants && (variants[type] || variants.cat || variants.elf || variants.giant);
+    const resolvedType = variants && (variants[type] ? type : variants.cat ? "cat" : variants.elf ? "elf" : "giant");
+    img = variants && variants[resolvedType];
+    recordCardSeen(card, resolvedType);
   } else {
     img = GAME_DATA.eventImages[card.id];
+    recordCardSeen(card);
   }
   // The card art itself already shows the name and effect text, so the
   // modal doesn't repeat them — just the (enlarged) card and a Continue button.
@@ -2849,6 +2852,89 @@ function showBestScoreDialog() {
   document.getElementById("modalBackdrop").style.display = "flex";
 }
 
+// ============== COLLECTION (card gallery) ==============
+const COLLECTION_STORAGE_KEY = "cafeFantasiaSeenCards";
+
+// Re-read from localStorage on demand rather than cached in memory — the
+// sighting that fills a slot and the screen that reads it can be far apart
+// (a whole game in between), so there's no in-memory copy worth keeping.
+function loadSeenCards() {
+  try {
+    const data = JSON.parse(localStorage.getItem(COLLECTION_STORAGE_KEY) || "null");
+    return { guests: (data && data.guests) || {}, events: (data && data.events) || {} };
+  } catch (e) {
+    return { guests: {}, events: {} }; // localStorage unavailable (private browsing, disabled storage, headless test)
+  }
+}
+
+// Called from showCardModal once it's decided the reveal is actually being
+// displayed on this browser (not, say, a multiplayer teammate's own
+// reveal) — that's this browser's definition of "seen". For guest cards,
+// remembers which type-variant (cat/elf/giant) was actually shown so the
+// gallery can display the exact art seen instead of guessing one.
+function recordCardSeen(card, guestTypeArt) {
+  try {
+    const seen = loadSeenCards();
+    if (card.kind === "guest") seen.guests[card.id] = guestTypeArt || seen.guests[card.id] || "cat";
+    else seen.events[card.id] = true;
+    localStorage.setItem(COLLECTION_STORAGE_KEY, JSON.stringify(seen));
+  } catch (e) { /* localStorage unavailable */ }
+}
+
+function showCollectionScreen() {
+  document.getElementById("splashScreen").style.display = "none";
+  document.getElementById("collectionScreen").style.display = "block";
+  renderCollectionScreen();
+}
+
+function renderCollectionScreen() {
+  const seen = loadSeenCards();
+  const guestSlotsHtml = GAME_DATA.guests.map((g) => {
+    const type = seen.guests[g.id];
+    if (!type) return `<div class="collection-slot unseen" title="Not yet seen">?</div>`;
+    const variants = GAME_DATA.guestImagesByType[g.id];
+    const img = (variants && variants[type]) || Object.values(variants || {})[0];
+    return `<div class="collection-slot seen" onclick="showCollectionCardModal('${g.id}','${type}')"><img src="${img}" alt="${escapeHtml(g.name)}"></div>`;
+  }).join("");
+  const eventSlotsHtml = GAME_DATA.events.map((e) => {
+    if (!seen.events[e.id]) return `<div class="collection-slot unseen" title="Not yet seen">?</div>`;
+    const img = GAME_DATA.eventImages[e.id];
+    return `<div class="collection-slot seen" onclick="showCollectionCardModal('${e.id}')"><img src="${img}" alt="${escapeHtml(e.name)}"></div>`;
+  }).join("");
+  const guestSeenCount = Object.keys(seen.guests).length;
+  const eventSeenCount = Object.keys(seen.events).length;
+
+  document.getElementById("collectionScreen").innerHTML = `
+    <div class="collection-header">
+      <button class="collection-back-btn" onclick="goToSplashScreen()">Back</button>
+      <h1>Collection</h1>
+    </div>
+    <div class="collection-body">
+      <div class="collection-section-title">Guests (${guestSeenCount}/${GAME_DATA.guests.length})</div>
+      <div class="collection-grid">${guestSlotsHtml}</div>
+      <div class="collection-section-title">Events (${eventSeenCount}/${GAME_DATA.events.length})</div>
+      <div class="collection-grid">${eventSlotsHtml}</div>
+    </div>`;
+}
+
+// Enlarges an already-seen card from the gallery — same modal chrome as an
+// in-game reveal (see showCardModal), but with a "Back" button that just
+// closes it, since there's no pending guest/event effect to resolve here.
+function showCollectionCardModal(cardId, guestTypeArt) {
+  const card = cardDef(cardId);
+  if (!card) return;
+  const img = card.kind === "guest" ? GAME_DATA.guestImagesByType[card.id][guestTypeArt] : GAME_DATA.eventImages[card.id];
+  document.getElementById("modalImgWrap").innerHTML = img
+    ? `<img src="${img}" alt="${escapeHtml(card.name)}" style="width:480px;height:672px;max-width:90vw;max-height:60vh;object-fit:contain;">`
+    : "";
+  document.getElementById("modalTitle").textContent = "";
+  document.getElementById("modalEffect").textContent = "";
+  document.getElementById("modalBody").innerHTML = `<button onclick="document.getElementById('modalBackdrop').style.display='none'">Back</button>`;
+  document.getElementById("modalBox").classList.remove("modal-wide");
+  document.getElementById("modalBox").classList.add("modal-transparent");
+  document.getElementById("modalBackdrop").style.display = "flex";
+}
+
 // ============== BACKGROUND STORY ==============
 const STORY_PAGES = [
   {
@@ -2915,6 +3001,7 @@ function goToSplashScreen() {
   document.getElementById("storyScreen").style.display = "none";
   document.getElementById("gameWrap").style.display = "none";
   document.getElementById("lobbyScreen").style.display = "none";
+  document.getElementById("collectionScreen").style.display = "none";
   document.getElementById("tutorialBar").style.display = "none";
   document.getElementById("modalBackdrop").style.display = "none";
   tutorial = null;

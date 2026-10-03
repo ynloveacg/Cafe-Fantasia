@@ -763,6 +763,7 @@ function buildInitialState(playerSpecs) {
     pendingReveal: null, // { playerId, cardId, ctx } — multiplayer's networked stand-in for showCardModal's window.__pendingCardResolve, see the MULTIPLAYER GAMEPLAY SYNC section
     pendingResult: null, // { playerId, id, kind, image, title, subtitle, diceFaces, showSavedDieButton } — same idea for showActionResultModal (hunt/fish/fruit-picking result popups)
     turnStartedAt: Date.now(), // multiplayer's 120s-per-turn timer reads this; unused (harmless) outside multiplayer
+    lastActionHighlight: null, // { playerId, fn, ts } — drives the spectate overlay's button flash, see MULTIPLAYER SPECTATE OVERLAY
   };
   refreshGuestCapacity(players[0]);
   resetFishingPool(players[0]);
@@ -1841,11 +1842,39 @@ function mpSendIntent(name, args) {
   mp.roomRef.child("pendingActions").push({ playerId: myPlayerId, name, args: args || [] });
 }
 
+// Feeds the "spectate" overlay (see MULTIPLAYER SPECTATE OVERLAY below):
+// whenever a wrapped action actually executes for real — not when it's
+// merely queued as an intent — records which MAP_ACTION_BUTTONS button it
+// corresponds to (if any), so every other client's overlay can flash that
+// exact button once the resulting state reaches them. Only a handful of
+// actions correspond to a map button at all (develop/cook/spoon purchases
+// etc. live in the menu/shop, not the map), so most entries resolve to null
+// and are skipped.
+const MP_SPECTATE_BUTTON_FN = {
+  actionHunt: () => "actionHunt()",
+  actionFish: () => "actionFish()",
+  actionPickFruit: () => "actionPickFruit()",
+  actionPartTimeJob: () => "actionPartTimeJob()",
+  actionExplore: () => "actionExplore()",
+  confirmOpenBranch: () => "actionOpenBranch()", // same button the player actually pressed, whichever village they ended up picking
+  actionCultivate: (args) => `actionCultivate('${args[0]}')`,
+  actionExpandWheatFarm: () => "actionExpandWheatFarm()",
+  actionExpandVegetableGarden: () => "actionExpandVegetableGarden()",
+};
+function mpRecordLastAction(actionName, args) {
+  if (!mp || !mp.inGame || !state) return;
+  const toFn = MP_SPECTATE_BUTTON_FN[actionName];
+  const fn = toFn && toFn(args || []);
+  if (!fn) return;
+  state.lastActionHighlight = { playerId: currentPlayer().id, fn, ts: Date.now() };
+}
+
 for (const mpActionName of MP_WRAPPED_ACTIONS) {
   const mpOriginal = window[mpActionName];
   MP_ORIGINAL_FNS[mpActionName] = mpOriginal;
   window[mpActionName] = function (...args) {
     if (mpShouldSendIntent()) { mpSendIntent(mpActionName, args); return; }
+    mpRecordLastAction(mpActionName, args);
     return mpOriginal.apply(this, args);
   };
 }
@@ -1940,7 +1969,11 @@ function mpApplyIntent(action) {
     }
   } else {
     const fn = MP_ORIGINAL_FNS[action.name];
-    if (fn) { fn(...(action.args || [])); render(); }
+    if (fn) {
+      mpRecordLastAction(action.name, action.args);
+      fn(...(action.args || []));
+      render();
+    }
   }
 }
 
@@ -2164,6 +2197,7 @@ function mpNormalizeIncomingState(s) {
   s.branchOwners = s.branchOwners || {};
   if (s.pendingReveal === undefined) s.pendingReveal = null;
   if (s.pendingResult === undefined) s.pendingResult = null;
+  if (s.lastActionHighlight === undefined) s.lastActionHighlight = null;
   for (const node of MAP_NODES) {
     if (!(node.id in s.villages)) s.villages[node.id] = node.id === "start" ? { ...START_VILLAGE } : null;
     if (!(node.id in s.branchOwners)) s.branchOwners[node.id] = [];
@@ -2681,6 +2715,71 @@ function renderMap(gates) {
   return html;
 }
 
+// ============== MULTIPLAYER SPECTATE OVERLAY ==============
+// A lighter alternative to full cursor streaming: during another player's
+// turn, show a read-only mirror of the shared map (the board itself isn't
+// per-player — only which buttons are enabled is) and flash whichever
+// button the active player just pressed, via state.lastActionHighlight
+// (see mpRecordLastAction). Opt-out, not opt-in: it pops up automatically
+// each time it becomes someone else's turn, and closing it just goes back
+// to your own board until the *next* turn change re-offers it.
+
+// Turn index the player last explicitly closed the overlay for — reset to
+// null once it becomes their own turn again, so the next opponent's turn
+// gets a fresh chance to show it rather than staying dismissed forever.
+let mpSpectateDismissedForTurnIndex = null;
+// ts of the lastActionHighlight already flashed, so repeated render() calls
+// (which happen far more often than new actions) don't replay the same
+// flash animation over and over.
+let mpLastFlashedHighlightTs = null;
+
+function openSpectateOverlay() {
+  mpSpectateDismissedForTurnIndex = null;
+  mpMaybeUpdateSpectateOverlay();
+}
+
+function closeSpectateOverlay() {
+  if (state) mpSpectateDismissedForTurnIndex = state.turnIndex;
+  document.getElementById("spectateOverlay").style.display = "none";
+}
+
+// Called every render() while in an active multiplayer game (no-op
+// otherwise) — opens/refreshes/closes the overlay as whose turn it is and
+// the player's dismissal choice dictate.
+function mpMaybeUpdateSpectateOverlay() {
+  const overlay = document.getElementById("spectateOverlay");
+  if (!mp || !mp.inGame || !state || state.gameOver) { overlay.style.display = "none"; return; }
+  const p = currentPlayer();
+  if (isLocalPlayer(p)) {
+    overlay.style.display = "none";
+    mpSpectateDismissedForTurnIndex = null;
+    return;
+  }
+  if (mpSpectateDismissedForTurnIndex === state.turnIndex) { overlay.style.display = "none"; return; }
+  overlay.innerHTML = renderSpectateOverlayContent(p);
+  overlay.style.display = "flex";
+
+  const highlight = state.lastActionHighlight;
+  if (highlight && highlight.playerId === p.id && highlight.ts !== mpLastFlashedHighlightTs) {
+    mpLastFlashedHighlightTs = highlight.ts;
+    const btn = overlay.querySelector(`[onclick="${highlight.fn}"]`);
+    if (btn) { btn.classList.remove("map-btn-flash"); void btn.offsetWidth; btn.classList.add("map-btn-flash"); }
+  }
+}
+
+function renderSpectateOverlayContent(p) {
+  const recentLog = state.log.slice(0, 5).map((m) => `<div>${m}</div>`).join("");
+  return `
+    <div class="spectate-panel">
+      <div class="spectate-header">
+        <h2>\u{1F440} Watching ${escapeHtml(p.name)}'s turn — Round ${state.round}</h2>
+        <button class="spectate-close-btn" onclick="closeSpectateOverlay()">Close</button>
+      </div>
+      <div class="spectate-map map-wrap" style="background-image:url(${GAME_DATA.mapBg});">${renderMap({})}</div>
+      <div class="spectate-log">${recentLog}</div>
+    </div>`;
+}
+
 function render() {
   hideRecipeHoverPreview(); // the hovered element is about to be rebuilt/replaced below
   document.getElementById("roundNum").textContent = state.round;
@@ -2709,7 +2808,7 @@ function render() {
     return icon ? `<img src="${icon}" alt="${type}" style="width:16px;height:16px;object-fit:contain;vertical-align:-3px;">` : type;
   };
   const cookInfoText = mp && mp.inGame && !humansTurn
-    ? `<em>⏳ Waiting for ${escapeHtml(p.name)}'s turn…</em>`
+    ? `<em>⏳ Waiting for ${escapeHtml(p.name)}'s turn…</em> <button class="spectate-watch-btn" onclick="openSpectateOverlay()">\u{1F440} Watch</button>`
     : prepPhase
     ? `<em>Finish your 3 actions (${state.actionsLeft} left) to unlock cooking.</em>`
     : `Guest capacity remaining this turn:
@@ -2787,6 +2886,7 @@ function render() {
     mpMaybeShowMyReveal();
     mpMaybeShowMyChoice();
     mpMaybeShowMyResult();
+    mpMaybeUpdateSpectateOverlay();
   }
 }
 
@@ -3097,9 +3197,11 @@ function goToSplashScreen() {
   document.getElementById("gameWrap").style.display = "none";
   document.getElementById("lobbyScreen").style.display = "none";
   document.getElementById("collectionScreen").style.display = "none";
+  document.getElementById("spectateOverlay").style.display = "none";
   document.getElementById("tutorialBar").style.display = "none";
   document.getElementById("modalBackdrop").style.display = "none";
   tutorial = null;
+  mpSpectateDismissedForTurnIndex = null;
   if (mp && mp.inGame) mpLeaveGame();
   document.getElementById("splashScreen").style.display = "flex";
 }

@@ -83,6 +83,7 @@ function createPlayer(id, name) {
     position: "start",
     branches: ["start"],
     guestCapacityRemaining: { cat: 0, giant: 0, elf: 0 }, // recomputed at the start of each of their turns
+    fishingPool: [], // sampling-without-replacement pool for actionFish, reset at the start of each of their turns
     pendingChoice: null,
     nextTurnActionDelta: 0,
     turnFlags: { tipMultiplier: 1, tipsVoided: false },
@@ -645,13 +646,12 @@ function otherPlayerOf(p) {
 //   - sum(stars^2) across every owned recipe, times 2
 //   - floor(money / 5)
 //   - renovationLevel, 1 point each
-//   - branches owned, 4 points each (always 0 here — no village/branch
-//     mechanic in this simplified preview)
+//   - branches owned, 6 points each
 function computeFinalScore(p) {
   const dishPoints = p.recipes.reduce((sum, r) => sum + r.stars * r.stars, 0) * 2;
   const moneyPoints = Math.floor(p.money / 5);
   const renovationPoints = p.renovationLevel;
-  const branchPoints = p.branches.length * 4;
+  const branchPoints = p.branches.length * 6;
   const total = dishPoints + moneyPoints + renovationPoints + branchPoints;
   return { dishPoints, moneyPoints, renovationPoints, branchPoints, total };
 }
@@ -713,6 +713,20 @@ function applyBoardBackgrounds() {
   document.documentElement.style.setProperty("--log-bg-url", `url(${GAME_DATA.logBg})`);
 }
 
+// Every player starts owning one random 1-star dish (BBQ/Bacon, Fish fry/
+// Sashimi, or Juice/Fruitcandy) — one of cat/giant/elf's entry-tier recipes,
+// never a side dish or the "star"-type recipes (Salad/Bread/Wine/Whisky/
+// Fantasy Banquet). Pulled out of the shared, already-shuffled recipePile
+// (not a separate pool) so it's removed from what's later drawn into the
+// menu or developed by anyone else, same as any other recipe draw.
+function drawStartingDish(recipePile) {
+  const idx = recipePile.findIndex((rid) => {
+    const def = recipeDef(rid);
+    return def.maxStars === 1 && def.guestType !== "star";
+  });
+  return recipePile.splice(idx, 1)[0];
+}
+
 // Shared by initGame (single player, real p1 + bots) and initMultiplayerGame
 // (every seat a real connected player, no bots) — `playerSpecs` is just the
 // ordered list of {id, name} to seat, so both callers get byte-identical
@@ -722,7 +736,7 @@ function buildInitialState(playerSpecs) {
   const recipePile = shuffle(GAME_DATA.recipes.map((r) => r.id));
   const players = playerSpecs.map((spec) => createPlayer(spec.id, spec.name));
   for (const p of players) {
-    const rid = recipePile.shift();
+    const rid = drawStartingDish(recipePile);
     p.recipes.push({ recipeId: rid, level: 0, stars: 0 });
   }
   const menu = [];
@@ -751,6 +765,7 @@ function buildInitialState(playerSpecs) {
     turnStartedAt: Date.now(), // multiplayer's 120s-per-turn timer reads this; unused (harmless) outside multiplayer
   };
   refreshGuestCapacity(players[0]);
+  resetFishingPool(players[0]);
   localGameOverDialogShown = false;
 }
 
@@ -784,6 +799,19 @@ function computeGuestCapacity(p) {
   return cap;
 }
 function refreshGuestCapacity(p) { p.guestCapacityRemaining = computeGuestCapacity(p); }
+
+// A sampling-without-replacement pool for actionFish: 3 zeros, 2 ones, and 1
+// two PER DIE the player's current spoon tier grants (so a wooden spoon's
+// 1-die pool is exactly one virtual die's worth of faces: 0,0,0,1,1,2).
+// Reset at the start of each of the player's turns (see refreshGuestCapacity
+// call sites) so a run of bad draws within one turn makes the remaining
+// draws skew better, instead of facing the same flat odds on every cast.
+function buildFishingPool(rank) {
+  const pool = [];
+  for (let i = 0; i < rank; i++) pool.push(0, 0, 0, 1, 1, 2);
+  return pool;
+}
+function resetFishingPool(p) { p.fishingPool = buildFishingPool(SPOON_RANK[p.spoon]); }
 
 // Used when a branch opens MID-TURN (not at turn start) — adds the new
 // village's capacity to whatever remains, rather than recomputing from
@@ -896,6 +924,7 @@ function endTurn() {
   next.nextTurnActionDelta = 0;
   next.turnFlags = { tipMultiplier: 1, tipsVoided: false };
   refreshGuestCapacity(next);
+  resetFishingPool(next);
   if (next.mafiaOfferQueued) {
     next.mafiaOfferQueued = false;
     next.pendingMafiaOffer = true;
@@ -1136,11 +1165,21 @@ function actionFish() {
   if (state.round <= state.coldWaveUntilRound) { logMsg("Can't fish this round — Cold wave"); render(); return; }
   const rank = SPOON_RANK[p.spoon];
   if (rank === 0) { logMsg(`${p.name} needs a spoon to fish`); render(); return; }
+  if (!p.fishingPool) p.fishingPool = buildFishingPool(rank);
+  // Top up (never reset) if an unusually high action count this turn (extra
+  // actions from a guest/event) has drawn the pool down below what this cast
+  // needs — should basically never trigger since the pool starts at 6x rank.
+  if (p.fishingPool.length < rank) p.fishingPool = p.fishingPool.concat(buildFishingPool(rank));
   let fish = 0;
   const rolls = [];
-  for (let i = 0; i < rank; i++) { const f = rollDie(); rolls.push(f); fish += f; }
+  for (let i = 0; i < rank; i++) {
+    const idx = Math.floor(Math.random() * p.fishingPool.length);
+    const value = p.fishingPool.splice(idx, 1)[0];
+    rolls.push(value);
+    fish += value;
+  }
   p.ingredients.fish += fish;
-  logMsg(`${p.name} fished, rolled [${rolls.join(",")}], got ${fish} fish`);
+  logMsg(`${p.name} fished, drew [${rolls.join(",")}], got ${fish} fish`);
   spendAction();
   render();
   showActionResultModal(p, {
@@ -1204,7 +1243,19 @@ function actionExplore() {
   const desc = Object.entries(population).map(([k, v]) => `${v} ${k}`).join(", ");
   logMsg(`${p.name} explored to a new village (${desc})`);
   spendAction();
+  // Immediately offer to open a branch at any explored, unclaimed village —
+  // resolveChoice's OPEN_BRANCH_AFTER_EXPLORE case never calls spendAction(),
+  // so accepting doesn't cost a second action; it rides the one explore just
+  // spent. Skipped during the tutorial, which teaches explore and open-branch
+  // as two separate scripted steps.
+  if (!isBot(p) && !tutorial) {
+    const branchOptions = eligibleBranchSlots(p);
+    if (branchOptions.length > 0 && p.money >= 20) {
+      p.pendingChoice = { cardName: "Explore", type: "OPEN_BRANCH_AFTER_EXPLORE", instructions: "Open a branch at an explored village for $20? This won't cost an extra action.", options: branchOptions };
+    }
+  }
   render();
+  if (p.pendingChoice && p.pendingChoice.type === "OPEN_BRANCH_AFTER_EXPLORE") showChoiceModal(p);
 }
 
 function sumVillage(v) { return (v.cat || 0) + (v.giant || 0) + (v.elf || 0); }
@@ -1600,6 +1651,11 @@ function renderChoiceBody(choice, p) {
         const desc = Object.entries(state.villages[id]).map(([k, v]) => `${v} ${k}`).join(", ");
         return `<button onclick="resolveChoice({nodeId:'${id}'})">${desc} ($10)</button>`;
       }).join("") + `<button onclick="resolveChoice({nodeId:null})">Skip</button>`;
+    case "OPEN_BRANCH_AFTER_EXPLORE":
+      return choice.options.map((id) => {
+        const desc = Object.entries(state.villages[id]).map(([k, v]) => `${v} ${k}`).join(", ");
+        return `<button onclick="resolveChoice({nodeId:'${id}'})">${desc} ($20)</button>`;
+      }).join("") + `<button onclick="resolveChoice({nodeId:null})">Skip</button>`;
     case "REPLACE_RECIPE":
       return choice.options.map((rid) => {
         const d = recipeDef(rid);
@@ -1644,6 +1700,21 @@ function resolveChoice(params, playerOverride) {
         logMsg(`${p.name} opened a branch at half price ($10) via Investor`);
       } else {
         logMsg(`${p.name} skipped Investor's offer`);
+      }
+      break;
+    }
+    // No spendAction() here — the one action this came from was already
+    // spent by actionExplore() itself, which is the whole point of the offer.
+    case "OPEN_BRANCH_AFTER_EXPLORE": {
+      const nodeId = params.nodeId;
+      if (nodeId && p.money >= 20 && !p.branches.includes(nodeId) && state.branchOwners[nodeId].length === 0) {
+        p.money -= 20;
+        p.branches.push(nodeId);
+        state.branchOwners[nodeId].push(p.id);
+        addVillageCapacityToRemaining(p, nodeId);
+        logMsg(`${p.name} opened a branch right after exploring ($20, no extra action)`);
+      } else {
+        logMsg(`${p.name} skipped opening a branch after exploring`);
       }
       break;
     }
@@ -2097,7 +2168,10 @@ function mpNormalizeIncomingState(s) {
     if (!(node.id in s.villages)) s.villages[node.id] = node.id === "start" ? { ...START_VILLAGE } : null;
     if (!(node.id in s.branchOwners)) s.branchOwners[node.id] = [];
   }
-  for (const p of s.players) p.recipes = p.recipes || [];
+  for (const p of s.players) {
+    p.recipes = p.recipes || [];
+    p.fishingPool = p.fishingPool || [];
+  }
   return s;
 }
 
@@ -2750,7 +2824,7 @@ function scoreCardHtml(name, s) {
         &mdash; ${s.recipesLabel || "none"}<br>
         Money: $${s.money} \u2192 ${s.moneyPoints} pts<br>
         Renovation: ${s.renovationLevel} \u00d7 1 = ${s.renovationPoints} pts<br>
-        Branches: ${s.branches} \u00d7 4 = ${s.branchPoints} pts
+        Branches: ${s.branches} \u00d7 6 = ${s.branchPoints} pts
       </div>
     </div>`;
 }

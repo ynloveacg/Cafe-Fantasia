@@ -53,7 +53,7 @@ directly, which doesn't have this limit).
 - Game ends via: Michelin Inspector event card drawn while any player has
   3+ specialty dishes (rates ALL players, ends immediately for whoever
   qualifies), or round 25 reached. Winner = highest final score:
-  `sum(stars²)×2 + floor(money/5) + renovationLevel + branches×4`.
+  `sum(stars²)×2 + floor(money/5) + renovationLevel + branches×6`.
 - After cooking: 75% chance of a guest card (art matches the dish's
   guest type — cat/giant/elf — via `guestImagesByType`), 25% chance of an
   event card. Guest/event card art already has the name and effect text
